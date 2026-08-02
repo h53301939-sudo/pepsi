@@ -26,8 +26,26 @@ connectDB().then(async () => {
   }
 });
 
-// Body parsers & CORS middleware
-app.use(cors());
+// Configure CORS using FRONTEND_URL env variable
+const allowedOrigins = process.env.FRONTEND_URL
+  ? process.env.FRONTEND_URL.split(',').map(url => url.trim())
+  : ['http://localhost:3000', 'http://localhost:5173'];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests with no origin (like mobile apps, Postman or server-to-server) or listed origins
+    if (!origin || allowedOrigins.includes(origin) || process.env.NODE_ENV === 'development') {
+      callback(null, true);
+    } else {
+      callback(new Error(`CORS blocked for origin: ${origin}`));
+    }
+  },
+  credentials: true,
+  methods: ['GET', 'POST', 'PUT', 'DELETE', 'PATCH', 'OPTIONS'],
+  allowedHeaders: ['Content-Type', 'Authorization']
+};
+
+app.use(cors(corsOptions));
 app.use(express.json());
 app.use(express.urlencoded({ extended: true }));
 
@@ -60,4 +78,5 @@ app.use(errorHandler);
 const PORT = process.env.PORT || 5000;
 app.listen(PORT, () => {
   console.log(`Pepsi Distribution Server running on port ${PORT}`);
+  console.log(`CORS allowed origins: ${allowedOrigins.join(', ')}`);
 });
