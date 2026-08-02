@@ -1,0 +1,228 @@
+import React, { useState, useEffect } from 'react';
+import API from '../services/api';
+import LoadingSkeleton from '../components/common/LoadingSkeleton';
+import Modal from '../components/common/Modal';
+import { ArrowRightLeft, Plus, Trash2, CheckCircle } from 'lucide-react';
+
+export default function PurchasesPage() {
+  const [purchases, setPurchases] = useState([]);
+  const [suppliers, setSuppliers] = useState([]);
+  const [products, setProducts] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [isModalOpen, setIsModalOpen] = useState(false);
+
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [supplierId, setSupplierId] = useState('');
+  const [items, setItems] = useState([{ product: '', quantity: '', purchasePrice: '' }]);
+
+  const fetchData = async () => {
+    try {
+      const [purRes, supRes, prodRes] = await Promise.all([
+        API.get('/purchases'),
+        API.get('/suppliers'),
+        API.get('/products')
+      ]);
+      setPurchases(purRes.data || []);
+      setSuppliers(supRes.data || []);
+      setProducts(prodRes.data || []);
+    } catch (err) {
+      console.error('Error fetching purchase data:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
+  useEffect(() => {
+    fetchData();
+  }, []);
+
+  const handleAddItemRow = () => {
+    setItems([...items, { product: '', quantity: '', purchasePrice: '' }]);
+  };
+
+  const handleRemoveItemRow = (idx) => {
+    setItems(items.filter((_, i) => i !== idx));
+  };
+
+  const handleProductSelect = (idx, prodId) => {
+    const selectedProd = products.find(p => p._id === prodId);
+    const newItems = [...items];
+    newItems[idx].product = prodId;
+    if (selectedProd) {
+      newItems[idx].purchasePrice = selectedProd.purchasePrice || selectedProd.sellingPrice;
+    }
+    setItems(newItems);
+  };
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    try {
+      await API.post('/purchases', {
+        invoiceNumber,
+        supplier: supplierId,
+        items: items.map(item => ({
+          product: item.product,
+          quantity: Number(item.quantity),
+          purchasePrice: Number(item.purchasePrice)
+        }))
+      });
+      setIsModalOpen(false);
+      fetchData();
+    } catch (err) {
+      alert(err.response?.data?.message || 'Failed to record purchase');
+    }
+  };
+
+  if (loading) return <LoadingSkeleton count={4} />;
+
+  return (
+    <div className="space-y-6">
+      <div className="flex items-center justify-between">
+        <div>
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+            Stock Inward Purchases (Pepsi Plant)
+          </h1>
+          <p className="text-xs text-slate-500 dark:text-slate-400">
+            Record incoming stock shipments from Pepsi Bottling Company in Cases to increase warehouse inventory
+          </p>
+        </div>
+        <button
+          onClick={() => {
+            setInvoiceNumber(`INV-PEP-${Date.now().toString().slice(-6)}`);
+            setSupplierId(suppliers[0]?._id || '');
+            setItems([{ product: products[0]?._id || '', quantity: '', purchasePrice: products[0]?.purchasePrice || '' }]);
+            setIsModalOpen(true);
+          }}
+          className="flex items-center space-x-2 px-4 py-2.5 bg-pepsi-blue text-white rounded-xl font-bold text-xs shadow hover:bg-blue-700 transition"
+        >
+          <Plus className="w-4 h-4" />
+          <span>Record New Stock Shipment</span>
+        </button>
+      </div>
+
+      {/* History Table */}
+      <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm">
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="bg-slate-50 dark:bg-slate-700/40 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
+                <th className="py-3 px-4">Invoice #</th>
+                <th className="py-3 px-4">Supplier</th>
+                <th className="py-3 px-4">Date</th>
+                <th className="py-3 px-4">Items Received (Cases)</th>
+                <th className="py-3 px-4 text-right">Total Shipment Value (₹)</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              {purchases.map((p) => (
+                <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40">
+                  <td className="py-3 px-4 font-bold text-blue-600 dark:text-blue-400">{p.invoiceNumber}</td>
+                  <td className="py-3 px-4 font-semibold text-slate-800 dark:text-slate-200">{p.supplier?.name}</td>
+                  <td className="py-3 px-4 text-slate-500">{new Date(p.purchaseDate).toLocaleDateString()}</td>
+                  <td className="py-3 px-4">
+                    {p.items?.map((item, i) => (
+                      <span key={i} className="inline-block bg-blue-50 dark:bg-blue-900/30 text-pepsi-blue dark:text-blue-300 border border-blue-200 dark:border-blue-800 px-2 py-0.5 rounded text-[10px] font-bold mr-1 mb-1">
+                        {item.product?.name}: {item.quantity} Cases
+                      </span>
+                    ))}
+                  </td>
+                  <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">
+                    ₹{p.totalAmount?.toLocaleString()}
+                  </td>
+                </tr>
+              ))}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* Record Purchase Modal */}
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Record Incoming Stock Inward Invoice (Cases)" maxWidth="max-w-3xl">
+        <form onSubmit={handleSubmit} className="space-y-4 text-xs">
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Supplier Invoice Number</label>
+              <input
+                type="text"
+                required
+                value={invoiceNumber}
+                onChange={(e) => setInvoiceNumber(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Supplier Name</label>
+              <select
+                value={supplierId}
+                onChange={(e) => setSupplierId(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
+              >
+                {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+              </select>
+            </div>
+          </div>
+
+          <div className="space-y-2 pt-2">
+            <label className="block font-bold text-slate-700 dark:text-slate-300">Shipment Line Items (Cases)</label>
+            {items.map((item, idx) => (
+              <div key={idx} className="flex items-center space-x-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
+                <select
+                  required
+                  value={item.product}
+                  onChange={(e) => handleProductSelect(idx, e.target.value)}
+                  className="flex-1 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-bold"
+                >
+                  <option value="">-- Select Product --</option>
+                  {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.size})</option>)}
+                </select>
+                <input
+                  type="number"
+                  required
+                  min="1"
+                  placeholder="Cases"
+                  value={item.quantity}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[idx].quantity = e.target.value;
+                    setItems(newItems);
+                  }}
+                  className="w-28 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-black text-center"
+                />
+                <input
+                  type="number"
+                  step="0.01"
+                  required
+                  placeholder="Price/Case (₹)"
+                  value={item.purchasePrice}
+                  onChange={(e) => {
+                    const newItems = [...items];
+                    newItems[idx].purchasePrice = e.target.value;
+                    setItems(newItems);
+                  }}
+                  className="w-32 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-black"
+                />
+                {items.length > 1 && (
+                  <button type="button" onClick={() => handleRemoveItemRow(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                    <Trash2 className="w-4 h-4" />
+                  </button>
+                )}
+              </div>
+            ))}
+            <button
+              type="button"
+              onClick={handleAddItemRow}
+              className="text-xs font-bold text-pepsi-blue hover:underline flex items-center space-x-1 pt-1"
+            >
+              <Plus className="w-3.5 h-3.5" />
+              <span>Add Another Item Line</span>
+            </button>
+          </div>
+
+          <button type="submit" className="w-full py-3 bg-pepsi-blue text-white font-bold rounded-xl hover:bg-blue-700 transition shadow">
+            Confirm Inward & Auto-Update Warehouse Stock
+          </button>
+        </form>
+      </Modal>
+    </div>
+  );
+}
