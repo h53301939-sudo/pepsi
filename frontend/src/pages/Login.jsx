@@ -45,7 +45,7 @@ export default function Login() {
             className="w-20 h-20 mx-auto object-contain drop-shadow-md"
           />
           <h2 className="text-2xl font-black text-white tracking-tight">
-            PEPSI <span className="text-pepsi-blue">DISTRIBUTION</span>
+            DAVID <span className="text-pepsi-blue">TRADERS</span>
           </h2>
           <p className="text-xs text-slate-400 font-medium">Warehouse & Van Sales Management ERP</p>
         </div>
