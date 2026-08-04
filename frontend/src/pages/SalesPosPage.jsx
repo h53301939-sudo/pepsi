@@ -260,7 +260,7 @@ export default function SalesPosPage() {
   if (loading) return <LoadingSkeleton count={4} />;
 
   return (
-    <div className="space-y-4">
+    <div className="space-y-4 pb-20 lg:pb-0">
       {/* Top Controls Bar */}
       <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
         <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
@@ -339,6 +339,40 @@ export default function SalesPosPage() {
             </div>
           )}
         </div>
+      </div>
+
+      {/* Mobile Tab Toggle Switcher (Visible on Mobile & Tablet screens) */}
+      <div className="grid grid-cols-2 lg:hidden bg-slate-200 dark:bg-slate-700/80 p-1.5 rounded-2xl gap-2 font-black text-xs shadow-inner">
+        <button
+          type="button"
+          onClick={() => setMobileTab('items')}
+          className={`py-3 rounded-xl flex items-center justify-center space-x-2 transition ${
+            mobileTab === 'items'
+              ? 'bg-pepsi-blue text-white shadow-md'
+              : 'text-slate-700 dark:text-slate-200 hover:bg-slate-300 dark:hover:bg-slate-600'
+          }`}
+        >
+          <Package className="w-4 h-4" />
+          <span>1. Select Items ({filteredStock.length})</span>
+        </button>
+
+        <button
+          type="button"
+          onClick={() => setMobileTab('cart')}
+          className={`py-3 rounded-xl flex items-center justify-center space-x-2 transition relative ${
+            mobileTab === 'cart'
+              ? 'bg-emerald-600 text-white shadow-md'
+              : 'bg-emerald-50 dark:bg-emerald-950/50 text-emerald-700 dark:text-emerald-300 border border-emerald-300 dark:border-emerald-800'
+          }`}
+        >
+          <ShoppingCart className="w-4 h-4" />
+          <span>2. View Cart ({cart.length}) {netTotal > 0 ? `• ₹${netTotal}` : ''}</span>
+          {cart.length > 0 && (
+            <span className="absolute -top-1 -right-1 w-5 h-5 bg-red-500 text-white font-black text-[10px] rounded-full flex items-center justify-center shadow animate-bounce">
+              {cart.length}
+            </span>
+          )}
+        </button>
       </div>
 
       {/* Main Grid Layout */}
@@ -540,6 +574,28 @@ export default function SalesPosPage() {
           </div>
         </div>
       </div>
+
+      {/* Mobile Floating Sticky Checkout Banner (When items are in cart) */}
+      {mobileTab === 'items' && cart.length > 0 && (
+        <div className="lg:hidden fixed bottom-16 left-3 right-3 z-30 bg-gradient-to-r from-emerald-600 to-teal-700 text-white p-3.5 rounded-2xl shadow-2xl flex items-center justify-between border border-emerald-400/40 backdrop-blur-md">
+          <div className="flex items-center space-x-2.5">
+            <div className="p-2 bg-white/20 rounded-xl">
+              <ShoppingCart className="w-5 h-5 text-white" />
+            </div>
+            <div>
+              <p className="font-extrabold text-xs">{cart.length} Item(s) Selected</p>
+              <p className="font-black text-sm text-emerald-200">Net Total: ₹{netTotal}</p>
+            </div>
+          </div>
+          <button
+            onClick={() => setMobileTab('cart')}
+            className="px-4 py-2 bg-white text-emerald-800 font-black text-xs rounded-xl shadow hover:bg-emerald-50 transition active:scale-95 flex items-center space-x-1"
+          >
+            <span>View Cart & Bill</span>
+            <span>→</span>
+          </button>
+        </div>
+      )}
 
       {/* Invoice Modal */}
       {generatedSale && (

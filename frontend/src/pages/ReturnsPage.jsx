@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
-import { CornerUpLeft, CheckCircle, Truck, Package, AlertCircle } from 'lucide-react';
+import { CornerUpLeft, CheckCircle, Truck, Package, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function ReturnsPage() {
   const { user } = useAuth();
@@ -13,6 +13,7 @@ export default function ReturnsPage() {
   const [returnsHistory, setReturnsHistory] = useState([]);
   const [loading, setLoading] = useState(true);
   const [errorMessage, setErrorMessage] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const fetchData = async () => {
     try {
@@ -60,6 +61,7 @@ export default function ReturnsPage() {
 
   const handleReturnSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // LOCK AGAINST DOUBLE CLICKING
     setErrorMessage('');
 
     const items = Object.keys(returnItems)
@@ -71,6 +73,7 @@ export default function ReturnsPage() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       await API.post('/returns', {
         vehicleId: selectedVehicle,
@@ -80,6 +83,8 @@ export default function ReturnsPage() {
       fetchData();
     } catch (err) {
       setErrorMessage(err.response?.data?.message || 'Failed to process return');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -157,11 +162,20 @@ export default function ReturnsPage() {
 
             <button
               type="submit"
-              disabled={vanStocks.length === 0}
-              className="w-full py-3 bg-pepsi-blue text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center space-x-2"
+              disabled={isSubmitting || vanStocks.length === 0}
+              className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2 shadow-md"
             >
-              <CheckCircle className="w-4 h-4" />
-              <span>Return Stock Cases to Warehouse & Close Shift</span>
+              {isSubmitting ? (
+                <>
+                  <Loader2 className="w-4 h-4 animate-spin" />
+                  <span>RETURNING STOCK TO WAREHOUSE...</span>
+                </>
+              ) : (
+                <>
+                  <CheckCircle className="w-4 h-4" />
+                  <span>Return Stock Cases to Warehouse & Close Shift</span>
+                </>
+              )}
             </button>
           </form>
         </div>
