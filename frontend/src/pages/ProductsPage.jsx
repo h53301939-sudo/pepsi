@@ -19,6 +19,7 @@ export default function ProductsPage() {
     '300ml',
     '330ml',
     '355ml',
+    '400ml',
     '440ml',
     '500ml',
     '600ml',

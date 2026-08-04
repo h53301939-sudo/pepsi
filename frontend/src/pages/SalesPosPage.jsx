@@ -4,13 +4,13 @@ import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import Modal from '../components/common/Modal';
-import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CreditCard, CheckCircle, Printer, AlertTriangle, Package, Loader2 } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CreditCard, CheckCircle, Printer, AlertTriangle, Package, Loader2, Store } from 'lucide-react';
 
 export default function SalesPosPage() {
   const { user } = useAuth();
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
-    return localStorage.getItem('pepsi_pos_vehicle') || '';
+    return localStorage.getItem('pepsi_pos_vehicle') || 'warehouse_direct';
   });
   const [vanStock, setVanStock] = useState([]);
   const [customers, setCustomers] = useState([]);
@@ -71,10 +71,21 @@ export default function SalesPosPage() {
   const fetchVanStock = async (vid) => {
     if (!vid) return;
     try {
-      const res = await API.get(`/vehicles/${vid}/stock`);
-      setVanStock(res.data?.stocks || []);
+      if (vid === 'warehouse_direct') {
+        const res = await API.get('/products');
+        const prods = res.data || [];
+        const mapped = prods.map(p => ({
+          _id: p._id,
+          product: p,
+          quantity: p.warehouseStock || 0
+        }));
+        setVanStock(mapped);
+      } else {
+        const res = await API.get(`/vehicles/${vid}/stock`);
+        setVanStock(res.data?.stocks || []);
+      }
     } catch (err) {
-      console.error('Error fetching vehicle stock:', err);
+      console.error('Error fetching stock:', err);
     }
   };
 
@@ -90,21 +101,13 @@ export default function SalesPosPage() {
       setCustomers(cList);
 
       let vid = selectedVehicleId;
-      const vanWithStock = vList.find(v => v.totalStockUnits > 0);
-      
-      if (!vid || !vList.some(v => v._id === vid)) {
-        vid = user?.assignedVehicle?._id || vanWithStock?._id || vList[0]?._id || '';
-      } else {
-        const currentSavedVan = vList.find(v => v._id === vid);
-        if (currentSavedVan && (currentSavedVan.totalStockUnits || 0) === 0 && vanWithStock) {
-          vid = vanWithStock._id;
-        }
+      if (!vid) {
+        vid = user?.assignedVehicle?._id || 'warehouse_direct';
       }
 
       setSelectedVehicleId(vid);
-      if (vid) {
-        fetchVanStock(vid);
-      }
+      fetchVanStock(vid);
+
       let cid = selectedCustomerId || (cList && cList[0]?._id) || '';
       setSelectedCustomerId(cid);
     } catch (err) {
@@ -127,7 +130,8 @@ export default function SalesPosPage() {
     const existing = cart.find(c => c.product._id === item.product._id);
     if (existing) {
       if (existing.quantity >= item.quantity) {
-        alert(`Cannot add more than available van stock (${item.quantity} Cases)`);
+        const stockType = selectedVehicleId === 'warehouse_direct' ? 'warehouse main stock' : 'van stock';
+        alert(`Cannot add more than available ${stockType} (${item.quantity} Cases)`);
         return;
       }
       setCart(cart.map(c => c.product._id === item.product._id ? { ...c, quantity: c.quantity + 1 } : c));
@@ -148,7 +152,8 @@ export default function SalesPosPage() {
     }
     const item = cart.find(c => c.product._id === prodId);
     if (item && newQty > item.maxStock) {
-      alert(`Max available stock on van is ${item.maxStock} Cases`);
+      const stockType = selectedVehicleId === 'warehouse_direct' ? 'warehouse' : 'van';
+      alert(`Max available stock on ${stockType} is ${item.maxStock} Cases`);
       return;
     }
     setCart(cart.map(c => c.product._id === prodId ? { ...c, quantity: newQty } : c));
@@ -177,7 +182,7 @@ export default function SalesPosPage() {
 
   const handleProcessSale = async () => {
     if (isSubmitting) return; // Prevent double trigger
-    if (!selectedVehicleId) return alert('Select delivery van');
+    if (!selectedVehicleId) return alert('Select dispatch source (Warehouse Counter or Van)');
     if (!selectedCustomerId) return alert('Select customer');
     if (cart.length === 0) return alert('Cart is empty');
 
@@ -252,8 +257,8 @@ export default function SalesPosPage() {
             <ShoppingCart className="w-5 h-5" />
           </div>
           <div>
-            <h1 className="text-lg font-black text-slate-900 dark:text-white leading-tight">Van Sales POS Terminal (Cases)</h1>
-            <p className="text-[11px] text-slate-500">Persistent Cart • Automatic Loaded Van Selection</p>
+            <h1 className="text-lg font-black text-slate-900 dark:text-white leading-tight">Sales POS Billing (Cases)</h1>
+            <p className="text-[11px] text-slate-500">Sell Direct from Warehouse Counter or Delivery Van Stock</p>
           </div>
         </div>
 
@@ -263,9 +268,10 @@ export default function SalesPosPage() {
             onChange={(e) => handleVehicleChange(e.target.value)}
             className="w-full sm:w-auto p-2.5 bg-slate-100 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-black text-slate-900 dark:text-white"
           >
+            <option value="warehouse_direct">🏭 DIRECT WAREHOUSE SALE (Main Counter)</option>
             {vehicles.map(v => (
               <option key={v._id} value={v._id}>
-                Van: {v.vehicleNumber} ({v.vehicleName}) — {v.totalStockUnits || 0} Cases Loaded
+                🚐 Van: {v.vehicleNumber} ({v.vehicleName}) — {v.totalStockUnits || 0} Cases Loaded
               </option>
             ))}
           </select>
@@ -338,7 +344,7 @@ export default function SalesPosPage() {
           <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
             <div className="flex items-center justify-between">
               <span className="text-xs font-bold text-slate-900 dark:text-white uppercase tracking-wider">
-                VAN CASES AVAILABLE ({filteredVanStock.length} SKUs)
+                {selectedVehicleId === 'warehouse_direct' ? 'WAREHOUSE MAIN STOCK AVAILABLE' : 'VAN CASES AVAILABLE'} ({filteredVanStock.length} SKUs)
               </span>
               <input
                 type="text"
@@ -374,8 +380,8 @@ export default function SalesPosPage() {
               ))}
               {filteredVanStock.length === 0 && (
                 <div className="col-span-3 py-12 text-center text-slate-400 italic text-xs space-y-1">
-                  <p className="font-bold text-slate-600 dark:text-slate-300">No cases loaded on selected van.</p>
-                  <p className="text-[11px]">Select a van with loaded stock in the top right dropdown or visit Van Loading page.</p>
+                  <p className="font-bold text-slate-600 dark:text-slate-300">No stock available for selected source.</p>
+                  <p className="text-[11px]">Select another dispatch source or add stock in Products Catalog / Van Loading.</p>
                 </div>
               )}
             </div>

@@ -6,7 +6,7 @@ const VehicleStock = require('../models/VehicleStock');
 const { recordLedgerTransaction } = require('../utils/ledgerEngine');
 const { logActivity } = require('../utils/logActivity');
 
-// @desc    Process Van Sale POS Transaction & Generate Invoice
+// @desc    Process Van Sale POS or Direct Warehouse Counter Sale Transaction & Generate Invoice
 // @route   POST /api/sales
 const createSale = async (req, res) => {
   try {
@@ -20,32 +20,46 @@ const createSale = async (req, res) => {
     } = req.body;
 
     if (!vehicleId || !customerId || !items || !items.length) {
-      return res.status(400).json({ message: 'Missing vehicle, customer, or items' });
+      return res.status(400).json({ message: 'Missing vehicle/warehouse selection, customer, or items' });
     }
 
-    const vehicle = await Vehicle.findById(vehicleId);
-    if (!vehicle) return res.status(404).json({ message: 'Vehicle not found' });
+    const isDirectWarehouse = vehicleId === 'warehouse_direct' || vehicleId === 'direct';
+
+    let vehicle = null;
+    if (!isDirectWarehouse) {
+      vehicle = await Vehicle.findById(vehicleId);
+      if (!vehicle) return res.status(404).json({ message: 'Selected vehicle not found' });
+    }
 
     const customer = await Customer.findById(customerId);
     if (!customer) return res.status(404).json({ message: 'Customer not found' });
 
-    // Validate vehicle stock & selling price configuration
+    // Validate stock & prices
     for (const item of items) {
-      const vStock = await VehicleStock.findOne({ vehicle: vehicleId, product: item.product });
       const product = await Product.findById(item.product);
       if (!product) return res.status(404).json({ message: `Product not found` });
 
       if (!product.sellingPrice || Number(product.sellingPrice) <= 0) {
         return res.status(400).json({
-          message: `⛔ Sale Blocked: Van Selling Price for "${product.name}" is not set by Admin! Please set selling price in "Van Selling Prices" page.`
+          message: `⛔ Sale Blocked: Selling Price for "${product.name}" is not set!`
         });
       }
 
-      const availQty = vStock ? vStock.quantity : 0;
-      if (availQty < item.quantity) {
-        return res.status(400).json({
-          message: `Insufficient vehicle stock for ${product ? product.name : 'item'}. On Van: ${availQty}, Sale Qty: ${item.quantity}`
-        });
+      if (isDirectWarehouse) {
+        const availQty = product.warehouseStock || 0;
+        if (availQty < item.quantity) {
+          return res.status(400).json({
+            message: `Insufficient warehouse main stock for ${product.name} (${product.size || ''}). Warehouse Stock: ${availQty} Cases, Sale Qty: ${item.quantity} Cases`
+          });
+        }
+      } else {
+        const vStock = await VehicleStock.findOne({ vehicle: vehicleId, product: item.product });
+        const availQty = vStock ? vStock.quantity : 0;
+        if (availQty < item.quantity) {
+          return res.status(400).json({
+            message: `Insufficient vehicle stock for ${product.name}. On Van: ${availQty} Cases, Sale Qty: ${item.quantity} Cases`
+          });
+        }
       }
     }
 
@@ -63,6 +77,7 @@ const createSale = async (req, res) => {
       processedItems.push({
         product: product._id,
         productName: product.name,
+        size: product.size || '',
         quantity: item.quantity,
         unitPrice,
         totalAmount: lineTotal
@@ -100,7 +115,7 @@ const createSale = async (req, res) => {
     const sale = new Sale({
       invoiceNumber,
       worker: req.user._id,
-      vehicle: vehicleId,
+      vehicle: isDirectWarehouse ? null : vehicleId,
       customer: customerId,
       items: processedItems,
       subTotal,
@@ -120,28 +135,50 @@ const createSale = async (req, res) => {
       await customer.save();
     }
 
-    // Record Stock Ledger Transactions (Vehicle -> Customer)
+    // Record Stock Ledger Transactions & Deduct Inventory
     for (const item of processedItems) {
-      await recordLedgerTransaction({
-        product: item.product,
-        quantity: item.quantity,
-        sourceType: 'Vehicle',
-        sourceId: vehicleId,
-        sourceRefModel: 'Vehicle',
-        destType: 'Customer',
-        destId: customerId,
-        destRefModel: 'Customer',
-        transactionType: 'Vehicle_To_Customer',
-        unitPrice: item.unitPrice,
-        user: req.user._id,
-        remarks: `Van Sale POS Invoice #${invoiceNumber}`
-      });
+      if (isDirectWarehouse) {
+        // Deduct directly from Product.warehouseStock
+        const prod = await Product.findById(item.product);
+        if (prod) {
+          prod.warehouseStock = Math.max(0, prod.warehouseStock - item.quantity);
+          await prod.save();
+        }
+
+        await recordLedgerTransaction({
+          product: item.product,
+          quantity: item.quantity,
+          sourceType: 'Warehouse',
+          destType: 'Customer',
+          destId: customerId,
+          destRefModel: 'Customer',
+          transactionType: 'Warehouse_To_Customer',
+          unitPrice: item.unitPrice,
+          user: req.user._id,
+          remarks: `Direct Warehouse Counter Sale Invoice #${invoiceNumber}`
+        });
+      } else {
+        await recordLedgerTransaction({
+          product: item.product,
+          quantity: item.quantity,
+          sourceType: 'Vehicle',
+          sourceId: vehicleId,
+          sourceRefModel: 'Vehicle',
+          destType: 'Customer',
+          destId: customerId,
+          destRefModel: 'Customer',
+          transactionType: 'Vehicle_To_Customer',
+          unitPrice: item.unitPrice,
+          user: req.user._id,
+          remarks: `Van Sale POS Invoice #${invoiceNumber}`
+        });
+      }
     }
 
     await logActivity({
       req,
       user: req.user,
-      action: 'Van Sale Invoice Generated',
+      action: isDirectWarehouse ? 'Direct Warehouse Counter Sale' : 'Van Sale Invoice Generated',
       details: `Generated Invoice #${invoiceNumber} for ${customer.shopName} total ₹${netTotal} (${paymentMethod})`
     });
 

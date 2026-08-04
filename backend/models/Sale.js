@@ -3,6 +3,7 @@ const mongoose = require('mongoose');
 const saleItemSchema = new mongoose.Schema({
   product: { type: mongoose.Schema.Types.ObjectId, ref: 'Product', required: true },
   productName: { type: String },
+  size: { type: String },
   quantity: { type: Number, required: true },
   unitPrice: { type: Number, required: true },
   totalAmount: { type: Number, required: true }
@@ -12,7 +13,7 @@ const saleSchema = new mongoose.Schema(
   {
     invoiceNumber: { type: String, required: true, unique: true },
     worker: { type: mongoose.Schema.Types.ObjectId, ref: 'User', required: true },
-    vehicle: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle', required: true },
+    vehicle: { type: mongoose.Schema.Types.ObjectId, ref: 'Vehicle', required: false },
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
     items: [saleItemSchema],
     subTotal: { type: Number, required: true },

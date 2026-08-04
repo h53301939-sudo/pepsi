@@ -102,9 +102,11 @@ export default function InvoiceModal({ isOpen, onClose, sale }) {
               ) : null}
             </div>
             <div className="text-right">
-              <p className="font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">VAN & SALESMAN</p>
+              <p className="font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">SOURCE & SALESMAN</p>
               <p className="font-bold text-slate-800 mt-0.5">Salesman: {sale.worker?.name || 'Worker'}</p>
-              <p className="text-slate-600">Vehicle: {sale.vehicle?.vehicleNumber || 'Van'}</p>
+              <p className="text-slate-600 font-semibold">
+                Dispatch: {sale.vehicle?.vehicleNumber ? `Van (${sale.vehicle.vehicleNumber})` : 'Direct Warehouse Counter'}
+              </p>
               <p className="text-slate-600 mt-1">Payment Mode: <span className="font-extrabold text-blue-800">{sale.paymentMethod}</span></p>
             </div>
           </div>
@@ -122,15 +124,23 @@ export default function InvoiceModal({ isOpen, onClose, sale }) {
                 </tr>
               </thead>
               <tbody className="divide-y divide-slate-100">
-                {sale.items?.map((item, idx) => (
-                  <tr key={idx} className="hover:bg-slate-50">
-                    <td className="py-2.5 px-3 font-semibold text-slate-500">{idx + 1}</td>
-                    <td className="py-2.5 px-3 font-black text-slate-900">{item.productName || item.product?.name}</td>
-                    <td className="py-2.5 px-3 text-center font-bold">{item.quantity} Cases</td>
-                    <td className="py-2.5 px-3 text-right font-semibold">₹{item.unitPrice.toFixed(2)}</td>
-                    <td className="py-2.5 px-3 text-right font-black text-slate-900">₹{item.totalAmount.toFixed(2)}</td>
-                  </tr>
-                ))}
+                {sale.items?.map((item, idx) => {
+                  const name = item.productName || item.product?.name || 'Pepsi Item';
+                  const size = item.size || item.product?.size;
+                  const fullDisplayName = size && !name.toLowerCase().includes(size.toLowerCase())
+                    ? `${name} (${size})`
+                    : name;
+
+                  return (
+                    <tr key={idx} className="hover:bg-slate-50">
+                      <td className="py-2.5 px-3 font-semibold text-slate-500">{idx + 1}</td>
+                      <td className="py-2.5 px-3 font-black text-slate-900">{fullDisplayName}</td>
+                      <td className="py-2.5 px-3 text-center font-bold">{item.quantity} Cases</td>
+                      <td className="py-2.5 px-3 text-right font-semibold">₹{item.unitPrice.toFixed(2)}</td>
+                      <td className="py-2.5 px-3 text-right font-black text-slate-900">₹{item.totalAmount.toFixed(2)}</td>
+                    </tr>
+                  );
+                })}
               </tbody>
             </table>
           </div>

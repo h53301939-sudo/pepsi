@@ -11,7 +11,9 @@ const settingSchema = new mongoose.Schema(
     currencySymbol: { type: String, default: '₹' },
     defaultGstPercent: { type: Number, default: 28 },
     invoiceFooter: { type: String, default: 'Thank you for choosing Pepsi Products! Refresh your world.' },
-    isProductionLive: { type: Boolean, default: false }
+    isProductionLive: { type: Boolean, default: false },
+    upiVpa: { type: String, default: 'pepsiagency@upi' },
+    upiName: { type: String, default: 'Pepsi Agency' }
   },
   { timestamps: true }
 );
