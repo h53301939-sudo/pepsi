@@ -16,7 +16,8 @@ import {
   UserCheck,
   Settings,
   CornerUpLeft,
-  ArrowRightLeft
+  ArrowRightLeft,
+  Store
 } from 'lucide-react';
 
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
@@ -26,6 +27,7 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   const navItems = [
     { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, role: 'all' },
     { label: 'Van Sales POS', path: '/pos', icon: ShoppingCart, role: 'all' },
+    { label: 'Direct Warehouse Sale', path: '/warehouse-pos', icon: Store, role: 'all' },
     { label: 'Products Catalog', path: '/products', icon: Package, role: 'admin' },
     { label: 'Stock Inward (Purchases)', path: '/purchases', icon: ArrowRightLeft, role: 'admin' },
     { label: 'Warehouse Stock', path: '/warehouse', icon: Warehouse, role: 'admin' },

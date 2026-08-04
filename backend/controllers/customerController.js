@@ -23,7 +23,7 @@ const getCustomers = async (req, res) => {
 // @desc    Create customer
 // @route   POST /api/customers
 const createCustomer = async (req, res) => {
-  const { shopName, ownerName, phone, whatsapp, address, gstNumber, creditLimit } = req.body;
+  const { shopName, ownerName, phone, whatsapp, address, gstNumber, creditLimit, discountPercentage } = req.body;
 
   if (!shopName || !ownerName || !phone) {
     return res.status(400).json({ message: 'Shop name, owner name, and phone are required' });
@@ -37,6 +37,7 @@ const createCustomer = async (req, res) => {
     address,
     gstNumber,
     creditLimit: creditLimit ? Number(creditLimit) : 50000,
+    discountPercentage: discountPercentage ? Number(discountPercentage) : 0,
     outstandingBalance: 0
   });
 

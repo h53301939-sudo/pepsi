@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
-import { ArrowRightLeft, Plus, Trash2, CheckCircle } from 'lucide-react';
+import { ArrowRightLeft, Plus, Trash2, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function PurchasesPage() {
   const [purchases, setPurchases] = useState([]);
@@ -10,6 +10,7 @@ export default function PurchasesPage() {
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const [invoiceNumber, setInvoiceNumber] = useState('');
   const [supplierId, setSupplierId] = useState('');
@@ -23,8 +24,12 @@ export default function PurchasesPage() {
         API.get('/products')
       ]);
       setPurchases(purRes.data || []);
-      setSuppliers(supRes.data || []);
+      const sups = supRes.data || [];
+      setSuppliers(sups);
       setProducts(prodRes.data || []);
+      if (sups.length > 0) {
+        setSupplierId(sups[0]._id);
+      }
     } catch (err) {
       console.error('Error fetching purchase data:', err);
     } finally {
@@ -54,8 +59,31 @@ export default function PurchasesPage() {
     setItems(newItems);
   };
 
+  const handleCreateDefaultSupplier = async () => {
+    try {
+      const res = await API.post('/suppliers', {
+        name: 'PepsiCo India Bottling Plant',
+        contactPerson: 'Central Distribution Manager',
+        phone: '+91 98765 00000',
+        email: 'orders@pepsico.com',
+        address: 'Central Bottling Plant, Industrial Estate',
+        gstNumber: '27AAAAA0000A1Z5'
+      });
+      setSuppliers([res.data]);
+      setSupplierId(res.data._id);
+    } catch (err) {
+      alert('Failed to add supplier');
+    }
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // LOCK AGAINST DOUBLE-CLICKING
+    if (!supplierId) {
+      alert('Please select or add a supplier first');
+      return;
+    }
+    setIsSubmitting(true);
     try {
       await API.post('/purchases', {
         invoiceNumber,
@@ -70,6 +98,8 @@ export default function PurchasesPage() {
       fetchData();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to record purchase');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -131,6 +161,13 @@ export default function PurchasesPage() {
                   </td>
                 </tr>
               ))}
+              {purchases.length === 0 && (
+                <tr>
+                  <td colSpan="5" className="py-8 text-center text-slate-400 italic">
+                    No inward shipments recorded yet. Click "Record New Stock Shipment" to add stock.
+                  </td>
+                </tr>
+              )}
             </tbody>
           </table>
         </div>
@@ -151,13 +188,25 @@ export default function PurchasesPage() {
               />
             </div>
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Supplier Name</label>
+              <div className="flex items-center justify-between mb-1">
+                <label className="block font-bold text-slate-700 dark:text-slate-300">Supplier Name</label>
+                {suppliers.length === 0 && (
+                  <button
+                    type="button"
+                    onClick={handleCreateDefaultSupplier}
+                    className="text-[10px] font-bold text-pepsi-blue hover:underline"
+                  >
+                    + Quick Add Supplier
+                  </button>
+                )}
+              </div>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
               >
                 {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
+                {suppliers.length === 0 && <option value="">No Supplier Available (Click Quick Add)</option>}
               </select>
             </div>
           </div>
@@ -218,8 +267,19 @@ export default function PurchasesPage() {
             </button>
           </div>
 
-          <button type="submit" className="w-full py-3 bg-pepsi-blue text-white font-bold rounded-xl hover:bg-blue-700 transition shadow">
-            Confirm Inward & Auto-Update Warehouse Stock
+          <button
+            type="submit"
+            disabled={isSubmitting}
+            className="w-full py-3 bg-pepsi-blue text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow flex items-center justify-center space-x-2"
+          >
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>SAVING SHIPMENT...</span>
+              </>
+            ) : (
+              <span>Confirm Inward & Auto-Update Warehouse Stock</span>
+            )}
           </button>
         </form>
       </Modal>

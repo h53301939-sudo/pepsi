@@ -1,14 +1,15 @@
 import React, { useRef, useState, useEffect } from 'react';
 import Modal from '../common/Modal';
-import { Printer, Download, CheckCircle, Clock } from 'lucide-react';
+import { Printer, Download, CheckCircle, Clock, Send, Share2, MessageCircle } from 'lucide-react';
 import jsPDF from 'jspdf';
 import html2canvas from 'html2canvas';
 import API from '../../services/api';
 import pepsiLogo from '../../assets/pepsi-logo.png';
 
-export default function InvoiceModal({ isOpen, onClose, sale }) {
+export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false }) {
   const invoiceRef = useRef(null);
   const [agencySettings, setAgencySettings] = useState(null);
+  const [copiedNotice, setCopiedNotice] = useState(false);
 
   useEffect(() => {
     if (isOpen) {
@@ -35,6 +36,72 @@ export default function InvoiceModal({ isOpen, onClose, sale }) {
     pdf.save(`Invoice_${sale.invoiceNumber}.pdf`);
   };
 
+  const calculatedSubTotal = sale.subTotal || sale.items?.reduce((acc, item) => acc + (item.totalAmount || 0), 0) || sale.netTotal;
+  const calculatedDiscount = Number(sale.discount || 0) || (calculatedSubTotal > sale.netTotal ? (calculatedSubTotal - sale.netTotal) : 0);
+
+  const handleShareWhatsapp = async () => {
+    const rawPhone = sale.customer?.phone || '';
+    const cleanPhone = rawPhone.replace(/\D/g, '');
+    let phoneWithCountry = '';
+    
+    if (cleanPhone.length === 10) {
+      phoneWithCountry = `91${cleanPhone}`;
+    } else if (cleanPhone.length > 10) {
+      phoneWithCountry = cleanPhone;
+    }
+
+    const companyName = agencySettings?.companyName || 'PEPSI BOTTLERS DISTRIBUTOR';
+    const dateStr = new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN');
+
+    let itemsText = '';
+    sale.items?.forEach((item, idx) => {
+      const name = item.productName || item.product?.name || 'Pepsi Item';
+      const size = item.size || item.product?.size;
+      const fullDisplayName = size && !name.toLowerCase().includes(size.toLowerCase())
+        ? `${name} (${size})`
+        : name;
+      itemsText += `${idx + 1}. *${fullDisplayName}* x ${item.quantity} Cases = ₹${item.totalAmount.toFixed(2)}\n`;
+    });
+
+    const discountLine = calculatedDiscount > 0 ? `🎁 *SPECIAL DISCOUNT:* -₹${calculatedDiscount.toFixed(2)}\n` : '';
+
+    const message = 
+`🧾 *${companyName.toUpperCase()}*
+----------------------------------------
+*SALES INVOICE:* #${sale.invoiceNumber}
+*Date:* ${dateStr}
+*Customer:* ${sale.customer?.shopName || 'Valued Customer'}
+*Payment Mode:* ${sale.paymentMethod}
+
+📦 *ITEMS RECEIVED:*
+${itemsText}
+${discountLine}💰 *NET TOTAL:* ₹${sale.netTotal?.toFixed(2)}
+${sale.dueAmount > 0 ? `⚠️ *OUTSTANDING BALANCE:* ₹${sale.dueAmount.toFixed(2)}` : '✅ *STATUS:* PAID FULL'}
+
+Thank you for choosing Pepsi Products! Refresh your world.`;
+
+    // Copy formatted bill text to clipboard as fallback
+    try {
+      await navigator.clipboard.writeText(message);
+      setCopiedNotice(true);
+      setTimeout(() => setCopiedNotice(false), 4000);
+    } catch (e) {
+      console.warn('Clipboard write failed:', e);
+    }
+
+    // Open WhatsApp Web or Mobile API directly with text parameter
+    const encodedText = encodeURIComponent(message);
+    let whatsappUrl = '';
+    
+    if (phoneWithCountry) {
+      whatsappUrl = `https://web.whatsapp.com/send?phone=${phoneWithCountry}&text=${encodedText}`;
+    } else {
+      whatsappUrl = `https://api.whatsapp.com/send?text=${encodedText}`;
+    }
+
+    window.open(whatsappUrl, '_blank');
+  };
+
   const companyName = agencySettings?.companyName || 'PEPSI BOTTLERS DISTRIBUTOR';
   const agencyAddress = agencySettings?.address || '';
   const agencyPhone = agencySettings?.phone || '';
@@ -43,8 +110,48 @@ export default function InvoiceModal({ isOpen, onClose, sale }) {
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Invoice #${sale.invoiceNumber}`} maxWidth="max-w-3xl">
       <div className="space-y-4">
+        {/* 🎉 POPUP SUCCESS MESSAGE BANNER - Only show right after completing a new sale */}
+        {isNewSale && (
+          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-4 rounded-2xl shadow-lg flex items-center justify-between animate-fade-in">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-white/20 rounded-xl backdrop-blur-md">
+                <CheckCircle className="w-7 h-7 text-white animate-pulse" />
+              </div>
+              <div>
+                <h3 className="text-base font-black tracking-wide flex items-center space-x-2">
+                  <span>🎉 SALE COMPLETED SUCCESSFULLY!</span>
+                </h3>
+                <p className="text-xs text-emerald-100 font-semibold mt-0.5">
+                  Invoice #{sale.invoiceNumber} created for {sale.customer?.shopName} (Net: ₹{sale.netTotal?.toLocaleString()})
+                </p>
+              </div>
+            </div>
+            <button
+              onClick={handleShareWhatsapp}
+              className="flex items-center space-x-1.5 px-3.5 py-2.5 bg-white text-emerald-700 font-black text-xs rounded-xl shadow hover:bg-emerald-50 transition active:scale-95 flex-shrink-0"
+            >
+              <MessageCircle className="w-4 h-4 fill-emerald-600 text-emerald-600" />
+              <span>Send WhatsApp Bill</span>
+            </button>
+          </div>
+        )}
+
+        {/* Copy Notice Banner */}
+        {copiedNotice && (
+          <div className="bg-blue-50 dark:bg-blue-900/40 border border-blue-200 dark:border-blue-700 text-pepsi-blue dark:text-blue-300 p-3 rounded-xl text-xs font-bold text-center animate-fade-in">
+            📋 Bill text copied to clipboard! If WhatsApp doesn't auto-fill, press <strong>Ctrl + V</strong> to paste.
+          </div>
+        )}
+
         {/* Action Controls */}
-        <div className="flex items-center justify-end space-x-3 pb-2 border-b border-slate-100 dark:border-slate-700">
+        <div className="flex items-center justify-end space-x-2.5 pb-2 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-y-2">
+          <button
+            onClick={handleShareWhatsapp}
+            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-black rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-md transition active:scale-95"
+          >
+            <MessageCircle className="w-4 h-4 fill-white text-emerald-600" />
+            <span>Send Bill on WhatsApp</span>
+          </button>
           <button
             onClick={handlePrint}
             className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
@@ -167,6 +274,18 @@ export default function InvoiceModal({ isOpen, onClose, sale }) {
             </div>
 
             <div className="w-64 space-y-1.5 text-right font-medium">
+              {calculatedDiscount > 0 && (
+                <>
+                  <div className="flex justify-between text-xs text-slate-600 font-semibold">
+                    <span>Sub Total:</span>
+                    <span>₹{calculatedSubTotal.toFixed(2)}</span>
+                  </div>
+                  <div className="flex justify-between text-xs text-emerald-600 font-bold">
+                    <span>Discount Applied:</span>
+                    <span>- ₹{calculatedDiscount.toFixed(2)}</span>
+                  </div>
+                </>
+              )}
               <div className="flex justify-between text-base font-black text-slate-900 border-t pt-2 border-slate-300">
                 <span>Net Total:</span>
                 <span className="text-blue-900 text-lg">₹{sale.netTotal?.toFixed(2)}</span>

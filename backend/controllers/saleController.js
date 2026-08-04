@@ -14,6 +14,7 @@ const createSale = async (req, res) => {
       vehicleId,
       customerId,
       items, // [{ product, quantity, unitPrice }]
+      discount, // Discount amount in ₹
       paymentMethod, // 'Cash', 'UPI', 'Credit'
       paidAmount,
       dueDate
@@ -63,7 +64,7 @@ const createSale = async (req, res) => {
       }
     }
 
-    // Calculate Subtotal & Net Total
+    // Calculate Subtotal, Discount & Net Total
     let subTotal = 0;
     const processedItems = [];
 
@@ -84,7 +85,8 @@ const createSale = async (req, res) => {
       });
     }
 
-    const netTotal = Math.round(subTotal);
+    const discountAmount = Math.max(0, Number(discount || 0));
+    const netTotal = Math.max(0, Math.round(subTotal - discountAmount));
     const actualPaid = paymentMethod === 'Credit' ? Number(paidAmount || 0) : netTotal;
     const dueAmount = netTotal - actualPaid;
 
@@ -119,6 +121,7 @@ const createSale = async (req, res) => {
       customer: customerId,
       items: processedItems,
       subTotal,
+      discount: discountAmount,
       netTotal,
       paymentMethod,
       paidAmount: actualPaid,
@@ -138,13 +141,6 @@ const createSale = async (req, res) => {
     // Record Stock Ledger Transactions & Deduct Inventory
     for (const item of processedItems) {
       if (isDirectWarehouse) {
-        // Deduct directly from Product.warehouseStock
-        const prod = await Product.findById(item.product);
-        if (prod) {
-          prod.warehouseStock = Math.max(0, prod.warehouseStock - item.quantity);
-          await prod.save();
-        }
-
         await recordLedgerTransaction({
           product: item.product,
           quantity: item.quantity,
@@ -179,7 +175,7 @@ const createSale = async (req, res) => {
       req,
       user: req.user,
       action: isDirectWarehouse ? 'Direct Warehouse Counter Sale' : 'Van Sale Invoice Generated',
-      details: `Generated Invoice #${invoiceNumber} for ${customer.shopName} total ₹${netTotal} (${paymentMethod})`
+      details: `Generated Invoice #${invoiceNumber} for ${customer.shopName} total ₹${netTotal} (Disc: ₹${discountAmount}, ${paymentMethod})`
     });
 
     const populatedSale = await Sale.findById(sale._id)

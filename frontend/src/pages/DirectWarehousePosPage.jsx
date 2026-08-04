@@ -4,30 +4,24 @@ import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import Modal from '../components/common/Modal';
-import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Tag } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Store, Tag } from 'lucide-react';
 
-export default function SalesPosPage() {
+export default function DirectWarehousePosPage() {
   const { user } = useAuth();
-  const [vehicles, setVehicles] = useState([]);
-  const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
-    return localStorage.getItem('pepsi_pos_vehicle') || '';
-  });
-  const [vanStock, setVanStock] = useState([]);
+  const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
   const [selectedCustomerId, setSelectedCustomerId] = useState(() => {
-    return localStorage.getItem('pepsi_pos_customer') || '';
+    return localStorage.getItem('pepsi_direct_pos_customer') || '';
   });
   const [searchProduct, setSearchProduct] = useState('');
   const [mobileTab, setMobileTab] = useState('items'); // 'items' or 'cart'
 
-  // Button locking state to prevent duplicate clicks/events
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isCustSubmitting, setIsCustSubmitting] = useState(false);
 
-  // Persistent Cart state stored in localStorage across page navigation
   const [cart, setCart] = useState(() => {
     try {
-      const saved = localStorage.getItem('pepsi_pos_cart');
+      const saved = localStorage.getItem('pepsi_direct_pos_cart');
       return saved ? JSON.parse(saved) : [];
     } catch (e) {
       return [];
@@ -50,67 +44,29 @@ export default function SalesPosPage() {
     address: ''
   });
 
-  // Save cart to localStorage whenever it changes
   useEffect(() => {
-    localStorage.setItem('pepsi_pos_cart', JSON.stringify(cart));
+    localStorage.setItem('pepsi_direct_pos_cart', JSON.stringify(cart));
   }, [cart]);
 
-  // Save selected vehicle to localStorage
-  useEffect(() => {
-    if (selectedVehicleId) {
-      localStorage.setItem('pepsi_pos_vehicle', selectedVehicleId);
-    }
-  }, [selectedVehicleId]);
-
-  // Save selected customer to localStorage
   useEffect(() => {
     if (selectedCustomerId) {
-      localStorage.setItem('pepsi_pos_customer', selectedCustomerId);
+      localStorage.setItem('pepsi_direct_pos_customer', selectedCustomerId);
     }
   }, [selectedCustomerId]);
 
-  const fetchVanStock = async (vehicleId) => {
-    if (!vehicleId) return;
-    try {
-      const res = await API.get(`/vehicles/${vehicleId}/stock`);
-      setVanStock(res.data.stocks || []);
-    } catch (err) {
-      console.error('Error fetching van stock:', err);
-    }
-  };
-
   const fetchData = async () => {
     try {
-      const [vRes, cRes] = await Promise.all([
-        API.get('/vehicles'),
+      const [pRes, cRes] = await Promise.all([
+        API.get('/products'),
         API.get('/customers')
       ]);
-      const vList = vRes.data || [];
+      setProducts(pRes.data || []);
       const cList = cRes.data || [];
-
-      setVehicles(vList);
       setCustomers(cList);
-
-      const vanWithStock = vList.find(v => (v.totalStockUnits || 0) > 0);
-
-      let vid = selectedVehicleId;
-      if (!vid || !vList.some(v => v._id === vid)) {
-        vid = user?.assignedVehicle?._id || vanWithStock?._id || vList[0]?._id || '';
-      } else {
-        const currentSavedVan = vList.find(v => v._id === vid);
-        if (currentSavedVan && (currentSavedVan.totalStockUnits || 0) === 0 && vanWithStock) {
-          vid = vanWithStock._id;
-        }
-      }
-
-      setSelectedVehicleId(vid);
-      if (vid) {
-        fetchVanStock(vid);
-      }
       let cid = selectedCustomerId || (cList && cList[0]?._id) || '';
       setSelectedCustomerId(cid);
     } catch (err) {
-      console.error('Error fetching POS data:', err);
+      console.error('Error fetching Direct Warehouse POS data:', err);
     } finally {
       setLoading(false);
     }
@@ -118,27 +74,29 @@ export default function SalesPosPage() {
 
   useEffect(() => {
     fetchData();
-  }, [user]);
+  }, []);
 
-  const handleVehicleChange = (vid) => {
-    setSelectedVehicleId(vid);
-    fetchVanStock(vid);
-  };
+  const addToCart = (product) => {
+    const existing = cart.find(c => c.product._id === product._id);
+    const maxStock = product.warehouseStock || 0;
 
-  const addToCart = (item) => {
-    const existing = cart.find(c => c.product._id === item.product._id);
+    if (maxStock <= 0) {
+      alert(`No main warehouse stock available for ${product.name}`);
+      return;
+    }
+
     if (existing) {
-      if (existing.quantity >= item.quantity) {
-        alert(`Cannot add more than available van stock (${item.quantity} Cases)`);
+      if (existing.quantity >= maxStock) {
+        alert(`Cannot add more than available warehouse stock (${maxStock} Cases)`);
         return;
       }
-      setCart(cart.map(c => c.product._id === item.product._id ? { ...c, quantity: c.quantity + 1 } : c));
+      setCart(cart.map(c => c.product._id === product._id ? { ...c, quantity: c.quantity + 1 } : c));
     } else {
       setCart([...cart, {
-        product: item.product,
+        product,
         quantity: 1,
-        unitPrice: item.product.sellingPrice,
-        maxVanStock: item.quantity
+        unitPrice: product.sellingPrice,
+        maxStock
       }]);
     }
   };
@@ -149,17 +107,17 @@ export default function SalesPosPage() {
       return;
     }
     const item = cart.find(c => c.product._id === prodId);
-    if (item && newQty > item.maxVanStock) {
-      alert(`Max available stock on van is ${item.maxVanStock} Cases`);
+    if (item && newQty > item.maxStock) {
+      alert(`Max available warehouse main stock is ${item.maxStock} Cases`);
       return;
     }
     setCart(cart.map(c => c.product._id === prodId ? { ...c, quantity: newQty } : c));
   };
 
   const handleClearCart = () => {
-    if (window.confirm('Clear all items from POS cart?')) {
+    if (window.confirm('Clear all items from warehouse sale cart?')) {
       setCart([]);
-      localStorage.removeItem('pepsi_pos_cart');
+      localStorage.removeItem('pepsi_direct_pos_cart');
     }
   };
 
@@ -189,8 +147,7 @@ export default function SalesPosPage() {
     ((selectedCustomerObj.outstandingBalance || 0) + prospectiveDue) > selectedCustomerObj.creditLimit;
 
   const handleProcessSale = async () => {
-    if (isSubmitting) return; // Prevent double trigger
-    if (!selectedVehicleId) return alert('Select delivery van');
+    if (isSubmitting) return;
     if (!selectedCustomerId) return alert('Select customer');
     if (cart.length === 0) return alert('Cart is empty');
 
@@ -204,11 +161,11 @@ export default function SalesPosPage() {
     setIsSubmitting(true);
     try {
       const salePayload = {
-        vehicleId: selectedVehicleId,
+        vehicleId: 'warehouse_direct',
         customerId: selectedCustomerId,
         items: cart.map(c => ({
           product: c.product._id,
-          quantity: c.quantity, // Cases
+          quantity: c.quantity,
           unitPrice: c.unitPrice
         })),
         discount: numericDisc,
@@ -220,14 +177,12 @@ export default function SalesPosPage() {
       setGeneratedSale(res.data);
       setIsInvoiceOpen(true);
       
-      // Clear persistent cart after successful sale
       setCart([]);
       setDiscountAmount('');
-      localStorage.removeItem('pepsi_pos_cart');
-      fetchVanStock(selectedVehicleId);
-      fetchData(); // Refresh customers list & balances
+      localStorage.removeItem('pepsi_direct_pos_cart');
+      fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'POS Sale failed');
+      alert(err.response?.data?.message || 'Direct Warehouse POS Sale failed');
     } finally {
       setIsSubmitting(false);
     }
@@ -250,69 +205,57 @@ export default function SalesPosPage() {
     }
   };
 
-  const filteredStock = vanStock.filter(st => 
-    st.product?.name?.toLowerCase().includes(searchProduct.toLowerCase()) ||
-    st.product?.size?.toLowerCase().includes(searchProduct.toLowerCase())
+  const filteredProducts = products.filter(p => 
+    p.name?.toLowerCase().includes(searchProduct.toLowerCase()) ||
+    p.size?.toLowerCase().includes(searchProduct.toLowerCase())
   );
-
-  const selectedVehicleObj = vehicles.find(v => v._id === selectedVehicleId);
 
   if (loading) return <LoadingSkeleton count={4} />;
 
   return (
     <div className="space-y-4">
-      {/* Top Controls Bar */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Van Sales POS</h1>
-            <span className="text-xs bg-blue-50 text-pepsi-blue dark:bg-blue-900/30 dark:text-blue-300 font-extrabold px-2.5 py-1 rounded-full border border-blue-200 dark:border-blue-800">
-              Live Loaded Route Billing (Cases)
-            </span>
+      {/* Top Header Banner */}
+      <div className="bg-gradient-to-r from-pepsi-blue to-blue-900 text-white p-4 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-center space-x-3">
+          <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md">
+            <Store className="w-6 h-6 text-white" />
           </div>
-
-          {/* Van Selector */}
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-500 uppercase text-[10px]">Select Route Van:</span>
-            <select
-              value={selectedVehicleId}
-              onChange={(e) => handleVehicleChange(e.target.value)}
-              className="p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs"
-            >
-              {vehicles.map((v) => (
-                <option key={v._id} value={v._id}>
-                  {v.vehicleNumber} ({v.vehicleName}) - {v.totalStockUnits || 0} Cases Loaded
-                </option>
-              ))}
-            </select>
+          <div>
+            <h1 className="text-xl font-black tracking-tight">Direct Warehouse Sale (Main Counter)</h1>
+            <p className="text-xs text-blue-100 font-semibold">
+              Sell beverage cases directly from main warehouse stock to visiting customers
+            </p>
           </div>
         </div>
 
-        {/* Customer Selection Bar */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="w-full sm:w-auto flex-1 flex items-center space-x-2">
-            <div className="flex-1">
-              <select
-                value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs focus:ring-2 focus:ring-pepsi-blue"
-              >
-                {customers.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.shopName} ({c.ownerName}) - Limit: ₹{c.creditLimit?.toLocaleString()} | Bal: ₹{c.outstandingBalance?.toLocaleString()}
-                    {c.discountPercentage > 0 ? ` [${c.discountPercentage}% OFF]` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              onClick={() => setIsNewCustModalOpen(true)}
-              className="px-3 py-2.5 bg-pepsi-blue text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition flex items-center space-x-1 flex-shrink-0"
-              title="Add New Customer Shop"
+        <button
+          onClick={() => setIsNewCustModalOpen(true)}
+          className="flex items-center justify-center space-x-1.5 px-3.5 py-2 bg-white/10 hover:bg-white/20 text-white rounded-xl font-bold text-xs border border-white/20 transition"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>+ Add Customer</span>
+        </button>
+      </div>
+
+      {/* Customer Selection Bar */}
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
+        <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
+          <div className="w-full sm:w-auto flex-1">
+            <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
+              Select Customer Shop
+            </label>
+            <select
+              value={selectedCustomerId}
+              onChange={(e) => setSelectedCustomerId(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs focus:ring-2 focus:ring-pepsi-blue"
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Customer</span>
-            </button>
+              {customers.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.shopName} ({c.ownerName}) - Limit: ₹{c.creditLimit?.toLocaleString()} | Bal: ₹{c.outstandingBalance?.toLocaleString()}
+                  {c.discountPercentage > 0 ? ` [${c.discountPercentage}% OFF]` : ''}
+                </option>
+              ))}
+            </select>
           </div>
 
           {selectedCustomerObj && (
@@ -349,7 +292,7 @@ export default function SalesPosPage() {
             <div className="flex items-center justify-between">
               <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center space-x-2">
                 <Package className="w-4 h-4 text-pepsi-blue" />
-                <span>Items Loaded on Van ({filteredStock.length} SKUs)</span>
+                <span>Main Warehouse Stock ({filteredProducts.length} SKUs)</span>
               </h3>
 
               <div className="relative w-48">
@@ -365,34 +308,28 @@ export default function SalesPosPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {filteredStock.map((st) => (
+              {filteredProducts.map((prod) => (
                 <div
-                  key={st._id}
-                  onClick={() => addToCart(st)}
+                  key={prod._id}
+                  onClick={() => addToCart(prod)}
                   className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-200 dark:border-slate-600/60 hover:border-pepsi-blue dark:hover:border-blue-400 cursor-pointer transition flex flex-col justify-between"
                 >
                   <div className="space-y-1">
                     <div className="flex justify-between items-start">
-                      <h4 className="font-extrabold text-xs text-slate-900 dark:text-white capitalize">{st.product?.name}</h4>
+                      <h4 className="font-extrabold text-xs text-slate-900 dark:text-white capitalize">{prod.name}</h4>
                       <span className="text-[9px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-1.5 py-0.5 rounded">
-                        {st.product?.size || '250ml'}
+                        {prod.size || '250ml'}
                       </span>
                     </div>
                   </div>
                   <div className="mt-4 flex items-center justify-between border-t pt-2 border-slate-200 dark:border-slate-600">
-                    <span className="text-xs md:text-sm font-black text-pepsi-blue dark:text-blue-400">₹{st.product?.sellingPrice} / Case</span>
+                    <span className="text-xs md:text-sm font-black text-pepsi-blue dark:text-blue-400">₹{prod.sellingPrice} / Case</span>
                     <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                      {st.quantity} Cases
+                      {prod.warehouseStock || 0} Cases
                     </span>
                   </div>
                 </div>
               ))}
-              {filteredStock.length === 0 && (
-                <div className="col-span-3 py-12 text-center text-slate-400 italic text-xs space-y-1">
-                  <p className="font-bold text-slate-600 dark:text-slate-300">No stock loaded on this vehicle.</p>
-                  <p>Go to "Van Loading" page to transfer cases from main warehouse to this van.</p>
-                </div>
-              )}
             </div>
           </div>
         </div>
@@ -401,7 +338,7 @@ export default function SalesPosPage() {
         <div className={`lg:col-span-5 bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col justify-between space-y-4 ${mobileTab === 'cart' ? 'block' : 'hidden lg:block'}`}>
           <div>
             <div className="flex items-center justify-between pb-3 border-b border-slate-200 dark:border-slate-700">
-              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Customer Sale Cart</h3>
+              <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Warehouse Cart Items</h3>
               <div className="flex items-center space-x-2">
                 <span className="text-xs text-slate-400 font-bold">{cart.length} Items</span>
                 {cart.length > 0 && (
@@ -440,7 +377,7 @@ export default function SalesPosPage() {
               ))}
               {cart.length === 0 && (
                 <div className="py-12 text-center text-slate-400 italic text-xs">
-                  Cart is empty. Click any item on the left to add cases to customer bill.
+                  Cart is empty. Click any item to add cases to sale cart.
                 </div>
               )}
             </div>
@@ -533,7 +470,7 @@ export default function SalesPosPage() {
               ) : (
                 <>
                   <CheckCircle className="w-4 h-4" />
-                  <span>COMPLETE SALE & GENERATE INVOICE</span>
+                  <span>COMPLETE DIRECT SALE & GENERATE INVOICE</span>
                 </>
               )}
             </button>

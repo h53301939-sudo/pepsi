@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
-import { Plus, Search, Edit2, Trash2, Package, AlertCircle, TrendingUp } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 
 export default function ProductsPage() {
   const [products, setProducts] = useState([]);
@@ -11,6 +11,7 @@ export default function ProductsPage() {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [editingProduct, setEditingProduct] = useState(null);
   const [formError, setFormError] = useState('');
+  const [isSubmitting, setIsSubmitting] = useState(false);
 
   const availableSizes = [
     '150ml',
@@ -86,6 +87,7 @@ export default function ProductsPage() {
 
   const handleSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // LOCK AGAINST DOUBLE CLICKING
     setFormError('');
 
     if (!formData.name || !formData.sellingPrice || !formData.purchasePrice) {
@@ -96,6 +98,7 @@ export default function ProductsPage() {
     const sPrice = Number(formData.sellingPrice);
     const pPrice = Number(formData.purchasePrice);
 
+    setIsSubmitting(true);
     try {
       const payload = {
         name: formData.name,
@@ -116,6 +119,8 @@ export default function ProductsPage() {
       fetchProducts();
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to save product in warehouse');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -365,9 +370,17 @@ export default function ProductsPage() {
 
           <button
             type="submit"
-            className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 transition text-sm shadow-md"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm shadow-md flex items-center justify-center space-x-2"
           >
-            {editingProduct ? 'Save Product Changes' : 'Add Item to Warehouse Catalog'}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>SAVING ITEM...</span>
+              </>
+            ) : (
+              <span>{editingProduct ? 'Save Product Changes' : 'Add Item to Warehouse Catalog'}</span>
+            )}
           </button>
         </form>
       </Modal>

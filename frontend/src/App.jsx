@@ -18,6 +18,7 @@ import PurchasesPage from './pages/PurchasesPage';
 import VehiclesPage from './pages/VehiclesPage';
 import VehicleLoadingPage from './pages/VehicleLoadingPage';
 import SalesPosPage from './pages/SalesPosPage';
+import DirectWarehousePosPage from './pages/DirectWarehousePosPage';
 import InvoicesPage from './pages/InvoicesPage';
 import CustomersPage from './pages/CustomersPage';
 import ReturnsPage from './pages/ReturnsPage';
@@ -118,6 +119,17 @@ export default function App() {
                 <ProtectedRoute>
                   <DashboardLayout>
                     <SalesPosPage />
+                  </DashboardLayout>
+                </ProtectedRoute>
+              }
+            />
+
+            <Route
+              path="/warehouse-pos"
+              element={
+                <ProtectedRoute>
+                  <DashboardLayout>
+                    <DirectWarehousePosPage />
                   </DashboardLayout>
                 </ProtectedRoute>
               }

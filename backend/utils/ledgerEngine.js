@@ -78,6 +78,15 @@ const recordLedgerTransaction = async ({
       }
       break;
 
+    case 'Warehouse_To_Customer':
+      // Deduct Main Warehouse Stock for Direct Warehouse Sales
+      if (Number(targetProduct.warehouseStock || 0) < numericQty) {
+        throw new Error(`Insufficient warehouse stock for ${targetProduct.name}. Available: ${targetProduct.warehouseStock}, Requested: ${numericQty}`);
+      }
+      targetProduct.warehouseStock = Number(targetProduct.warehouseStock || 0) - numericQty;
+      await targetProduct.save();
+      break;
+
     case 'Vehicle_To_Customer':
       // Atomic Decrease of Vehicle Stock
       if (sourceId) {

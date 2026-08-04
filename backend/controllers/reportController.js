@@ -100,15 +100,16 @@ const getDashboardStats = async (req, res) => {
     createdAt: { $gte: start, $lte: end }
   });
 
-  // 7. Today's Estimated Profit (Selling Revenue - Purchase Cost for Sold Items)
+  // 7. Today's Estimated Net Profit (Net Revenue - Purchase Cost for Sold Items)
   let todayProfit = 0;
   for (const sale of todaySales) {
+    let saleCost = 0;
     for (const item of sale.items) {
       const prod = await Product.findById(item.product);
       const costPrice = prod ? (prod.purchasePrice || 0) : (item.unitPrice * 0.8);
-      const itemCost = item.quantity * costPrice;
-      todayProfit += (item.totalAmount - itemCost);
+      saleCost += (item.quantity * costPrice);
     }
+    todayProfit += (sale.netTotal - saleCost);
   }
 
   // 8. Recent Sales & Activity
@@ -177,14 +178,13 @@ const getHistoricalAnalytics = async (req, res) => {
       workerSalesMap[workerName].invoices += 1;
       workerSalesMap[workerName].revenue += s.netTotal;
 
+      let saleCost = 0;
       for (const item of s.items) {
         totalCasesSold += item.quantity;
         const prod = await Product.findById(item.product);
         const costPrice = prod ? (prod.purchasePrice || 0) : (item.unitPrice * 0.8);
         const lineCost = item.quantity * costPrice;
-        const lineProfit = item.totalAmount - lineCost;
-
-        totalProfit += lineProfit;
+        saleCost += lineCost;
 
         const itemName = item.productName || prod?.name || 'Pepsi Item';
         if (!itemSalesMap[itemName]) {
@@ -192,8 +192,12 @@ const getHistoricalAnalytics = async (req, res) => {
         }
         itemSalesMap[itemName].cases += item.quantity;
         itemSalesMap[itemName].revenue += item.totalAmount;
-        itemSalesMap[itemName].profit += lineProfit;
+        itemSalesMap[itemName].profit += (item.totalAmount - lineCost);
       }
+
+      // Net Profit = Net Revenue (SubTotal - Discount) - Purchase Cost (COGS)
+      const saleProfit = s.netTotal - saleCost;
+      totalProfit += saleProfit;
     }
 
     // 2. Fetch Purchases & Returns for Date Range
@@ -308,6 +312,8 @@ const exportToExcel = async (req, res) => {
       { header: 'Customer', key: 'customer', width: 25 },
       { header: 'Worker', key: 'worker', width: 20 },
       { header: 'Payment Method', key: 'paymentMethod', width: 15 },
+      { header: 'Sub Total (₹)', key: 'subTotal', width: 15 },
+      { header: 'Discount (₹)', key: 'discount', width: 15 },
       { header: 'Net Total (₹)', key: 'netTotal', width: 15 },
       { header: 'Paid (₹)', key: 'paidAmount', width: 15 },
       { header: 'Due (₹)', key: 'dueAmount', width: 15 }
@@ -321,6 +327,8 @@ const exportToExcel = async (req, res) => {
         customer: s.customer?.shopName || 'N/A',
         worker: s.worker?.name || 'N/A',
         paymentMethod: s.paymentMethod,
+        subTotal: s.subTotal || s.netTotal,
+        discount: s.discount || 0,
         netTotal: s.netTotal,
         paidAmount: s.paidAmount,
         dueAmount: s.dueAmount

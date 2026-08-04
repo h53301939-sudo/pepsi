@@ -17,6 +17,7 @@ const saleSchema = new mongoose.Schema(
     customer: { type: mongoose.Schema.Types.ObjectId, ref: 'Customer', required: true },
     items: [saleItemSchema],
     subTotal: { type: Number, required: true },
+    discount: { type: Number, default: 0 },
     netTotal: { type: Number, required: true },
     paymentMethod: { type: String, enum: ['Cash', 'UPI', 'Credit'], required: true },
     paidAmount: { type: Number, required: true },

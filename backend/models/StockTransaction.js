@@ -12,7 +12,7 @@ const stockTransactionSchema = new mongoose.Schema(
       required: true
     },
     sourceId: { type: mongoose.Schema.Types.ObjectId, refPath: 'sourceRefModel', default: null },
-    sourceRefModel: { type: String, enum: ['Supplier', 'Vehicle', 'User'], default: null },
+    sourceRefModel: { type: String, enum: ['Supplier', 'Vehicle', 'User', 'Warehouse'], default: null },
     destType: {
       type: String,
       enum: ['Warehouse', 'Vehicle', 'Customer', 'Damage', 'Adjustment'],
@@ -22,7 +22,16 @@ const stockTransactionSchema = new mongoose.Schema(
     destRefModel: { type: String, enum: ['Vehicle', 'Customer', 'User'], default: null },
     transactionType: {
       type: String,
-      enum: ['Supplier_Inward', 'Warehouse_To_Vehicle', 'Vehicle_To_Customer', 'Vehicle_To_Warehouse', 'Warehouse_Damage', 'Vehicle_Damage', 'Stock_Adjustment'],
+      enum: [
+        'Supplier_Inward',
+        'Warehouse_To_Vehicle',
+        'Vehicle_To_Customer',
+        'Warehouse_To_Customer',
+        'Vehicle_To_Warehouse',
+        'Warehouse_Damage',
+        'Vehicle_Damage',
+        'Stock_Adjustment'
+      ],
       required: true
     },
     unitPrice: { type: Number, default: 0 },
@@ -33,4 +42,4 @@ const stockTransactionSchema = new mongoose.Schema(
   { timestamps: true }
 );
 
-module.exports = mongoose.model('StockTransaction', stockTransactionSchema);
+module.exports = mongoose.models.StockTransaction || mongoose.model('StockTransaction', stockTransactionSchema);

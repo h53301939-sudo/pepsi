@@ -9,7 +9,8 @@ const customerSchema = new mongoose.Schema(
     address: { type: String },
     gstNumber: { type: String },
     creditLimit: { type: Number, default: 50000 },
-    outstandingBalance: { type: Number, default: 0 }
+    outstandingBalance: { type: Number, default: 0 },
+    discountPercentage: { type: Number, default: 0 } // Customer specific default discount %
   },
   { timestamps: true }
 );

@@ -9,6 +9,7 @@ export default function WorkersPage() {
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [editingWorker, setEditingWorker] = useState(null);
 
   const [formData, setFormData] = useState({
     name: '',
@@ -37,14 +38,36 @@ export default function WorkersPage() {
     fetchData();
   }, []);
 
+  const handleOpenAddModal = () => {
+    setEditingWorker(null);
+    setFormData({ name: '', email: '', password: 'worker123', phone: '', assignedVehicle: '' });
+    setIsModalOpen(true);
+  };
+
+  const handleOpenEditModal = (w) => {
+    setEditingWorker(w);
+    setFormData({
+      name: w.name,
+      email: w.email,
+      password: '', // Leave blank if not changing password
+      phone: w.phone || '',
+      assignedVehicle: w.assignedVehicle?._id || ''
+    });
+    setIsModalOpen(true);
+  };
+
   const handleSubmit = async (e) => {
     e.preventDefault();
     try {
-      await API.post('/auth/workers', formData);
+      if (editingWorker) {
+        await API.put(`/auth/workers/${editingWorker._id}`, formData);
+      } else {
+        await API.post('/auth/workers', formData);
+      }
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to add worker');
+      alert(err.response?.data?.message || 'Failed to save worker');
     }
   };
 
@@ -73,10 +96,7 @@ export default function WorkersPage() {
           </p>
         </div>
         <button
-          onClick={() => {
-            setFormData({ name: '', email: '', password: 'worker123', phone: '', assignedVehicle: '' });
-            setIsModalOpen(true);
-          }}
+          onClick={handleOpenAddModal}
           className="flex items-center space-x-2 px-4 py-2.5 bg-pepsi-blue text-white rounded-xl font-bold text-xs shadow hover:bg-blue-700 transition"
         >
           <Plus className="w-4 h-4" />
@@ -93,9 +113,22 @@ export default function WorkersPage() {
                 <p className="text-xs text-slate-500">{w.email}</p>
                 <p className="text-[11px] text-slate-400 font-semibold">{w.phone || 'No Phone'}</p>
               </div>
-              <button onClick={() => handleDelete(w._id)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
-                <Trash2 className="w-4 h-4" />
-              </button>
+              <div className="flex items-center space-x-1">
+                <button
+                  onClick={() => handleOpenEditModal(w)}
+                  className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
+                  title="Edit Worker"
+                >
+                  <Edit2 className="w-3.5 h-3.5" />
+                </button>
+                <button
+                  onClick={() => handleDelete(w._id)}
+                  className="p-1.5 rounded-lg bg-red-50 dark:bg-red-950/40 text-red-600 dark:text-red-400 hover:bg-red-100 transition"
+                  title="Delete Worker"
+                >
+                  <Trash2 className="w-3.5 h-3.5" />
+                </button>
+              </div>
             </div>
 
             <div className="border-t pt-3 border-slate-100 dark:border-slate-700 text-xs flex justify-between">
@@ -108,7 +141,7 @@ export default function WorkersPage() {
         ))}
       </div>
 
-      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title="Register Salesman Worker Account">
+      <Modal isOpen={isModalOpen} onClose={() => setIsModalOpen(false)} title={editingWorker ? 'Edit Salesman Worker Account' : 'Register Salesman Worker Account'}>
         <form onSubmit={handleSubmit} className="space-y-4 text-xs">
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Full Name</label>
@@ -118,7 +151,7 @@ export default function WorkersPage() {
               value={formData.name}
               onChange={(e) => setFormData({ ...formData, name: e.target.value })}
               placeholder="e.g. Ramesh Kumar"
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white"
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
             />
           </div>
 
@@ -148,10 +181,12 @@ export default function WorkersPage() {
           </div>
 
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Initial Password</label>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+              {editingWorker ? 'New Password (leave blank to keep current)' : 'Initial Password'}
+            </label>
             <input
               type="password"
-              required
+              required={!editingWorker}
               value={formData.password}
               onChange={(e) => setFormData({ ...formData, password: e.target.value })}
               className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white"
@@ -163,7 +198,7 @@ export default function WorkersPage() {
             <select
               value={formData.assignedVehicle}
               onChange={(e) => setFormData({ ...formData, assignedVehicle: e.target.value })}
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white"
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
             >
               <option value="">-- Select Van --</option>
               {vehicles.map(v => <option key={v._id} value={v._id}>{v.vehicleNumber} ({v.vehicleName})</option>)}
@@ -171,7 +206,7 @@ export default function WorkersPage() {
           </div>
 
           <button type="submit" className="w-full py-3 bg-pepsi-blue text-white font-bold rounded-xl hover:bg-blue-700 transition">
-            Create Worker Account
+            {editingWorker ? 'Save Worker Changes' : 'Create Worker Account'}
           </button>
         </form>
       </Modal>

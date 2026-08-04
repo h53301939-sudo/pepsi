@@ -5,11 +5,13 @@ const connectDB = async () => {
 
   try {
     const conn = await mongoose.connect(mongoUri, {
-      serverSelectionTimeoutMS: 30000, // 30s timeout for MongoDB Atlas cloud cluster
+      serverSelectionTimeoutMS: 30000,
     });
-    console.log(`✅ MongoDB Atlas Cluster Connected: ${conn.connection.host}/${conn.connection.name}`);
+    const isLocal = conn.connection.host.includes('127.0.0.1') || conn.connection.host.includes('localhost');
+    const label = isLocal ? 'Local MongoDB' : 'Cloud MongoDB Atlas';
+    console.log(`✅ ${label} Connected: ${conn.connection.host}/${conn.connection.name}`);
   } catch (error) {
-    console.error(`❌ Cloud MongoDB Atlas Connection Error (${error.message}). Attempting fallback...`);
+    console.error(`❌ MongoDB Connection Error (${error.message}). Attempting fallback...`);
     try {
       const { MongoMemoryServer } = require('mongodb-memory-server');
       const mongoServer = await MongoMemoryServer.create();

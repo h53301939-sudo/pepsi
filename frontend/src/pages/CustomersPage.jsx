@@ -2,7 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
-import { Users, Plus, CreditCard, DollarSign, Search, CheckCircle, Edit2, AlertCircle, Trash2 } from 'lucide-react';
+import { Users, Plus, CreditCard, DollarSign, Search, CheckCircle, Edit2, AlertCircle, Trash2, Tag, Loader2 } from 'lucide-react';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
@@ -14,16 +14,19 @@ export default function CustomersPage() {
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
   const [paymentAmount, setPaymentAmount] = useState('');
   const [paymentMethod, setPaymentMethod] = useState('Cash');
+  const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
 
   // Edit / Add Customer Modal State
   const [isCustModalOpen, setIsCustModalOpen] = useState(false);
   const [editingCust, setEditingCust] = useState(null);
+  const [isSubmitting, setIsSubmitting] = useState(false);
   const [custForm, setCustForm] = useState({
     shopName: '',
     ownerName: '',
     phone: '',
     address: '',
-    creditLimit: '50000'
+    creditLimit: '50000',
+    discountPercentage: '0'
   });
   const [formError, setFormError] = useState('');
 
@@ -51,6 +54,8 @@ export default function CustomersPage() {
 
   const handlePaymentSubmit = async (e) => {
     e.preventDefault();
+    if (isPaymentSubmitting) return; // LOCK AGAINST DOUBLE CLICKING
+    setIsPaymentSubmitting(true);
     try {
       await API.post(`/customers/${selectedCust._id}/payments`, {
         amount: Number(paymentAmount),
@@ -60,6 +65,8 @@ export default function CustomersPage() {
       fetchCustomers();
     } catch (err) {
       alert(err.response?.data?.message || 'Failed to record payment');
+    } finally {
+      setIsPaymentSubmitting(false);
     }
   };
 
@@ -72,7 +79,8 @@ export default function CustomersPage() {
       ownerName: '',
       phone: '',
       address: '',
-      creditLimit: '50000'
+      creditLimit: '50000',
+      discountPercentage: '0'
     });
     setIsCustModalOpen(true);
   };
@@ -85,13 +93,15 @@ export default function CustomersPage() {
       ownerName: cust.ownerName,
       phone: cust.phone,
       address: cust.address || '',
-      creditLimit: cust.creditLimit || '50000'
+      creditLimit: cust.creditLimit || '50000',
+      discountPercentage: cust.discountPercentage || '0'
     });
     setIsCustModalOpen(true);
   };
 
   const handleCustSubmit = async (e) => {
     e.preventDefault();
+    if (isSubmitting) return; // LOCK AGAINST DOUBLE CLICKING
     setFormError('');
 
     if (!custForm.shopName || !custForm.ownerName || !custForm.phone) {
@@ -99,10 +109,12 @@ export default function CustomersPage() {
       return;
     }
 
+    setIsSubmitting(true);
     try {
       const payload = {
         ...custForm,
-        creditLimit: Number(custForm.creditLimit || 50000)
+        creditLimit: Number(custForm.creditLimit || 50000),
+        discountPercentage: Number(custForm.discountPercentage || 0)
       };
 
       if (editingCust) {
@@ -115,6 +127,8 @@ export default function CustomersPage() {
       fetchCustomers();
     } catch (err) {
       setFormError(err.response?.data?.message || 'Failed to save customer');
+    } finally {
+      setIsSubmitting(false);
     }
   };
 
@@ -139,7 +153,7 @@ export default function CustomersPage() {
             Customer Directory & Credit Accounts
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Track retail shop accounts, edit credit limits, view balances, and collect payments
+            Track retail shop accounts, edit credit limits, set special customer discounts, and collect payments
           </p>
         </div>
         <button
@@ -170,14 +184,22 @@ export default function CustomersPage() {
             <div>
               <div className="flex items-start justify-between">
                 <div>
-                  <h3 className="font-extrabold text-base text-slate-900 dark:text-white">{c.shopName}</h3>
+                  <div className="flex items-center space-x-2">
+                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white">{c.shopName}</h3>
+                    {c.discountPercentage > 0 && (
+                      <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold text-[10px] rounded-full flex items-center space-x-1">
+                        <Tag className="w-3 h-3" />
+                        <span>{c.discountPercentage}% OFF</span>
+                      </span>
+                    )}
+                  </div>
                   <p className="text-xs text-slate-500">{c.ownerName} ({c.phone})</p>
                 </div>
                 <div className="flex space-x-1">
                   <button
                     onClick={() => handleOpenEditCustomer(c)}
                     className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
-                    title="Edit Credit Limit & Details"
+                    title="Edit Customer & Discount"
                   >
                     <Edit2 className="w-3.5 h-3.5" />
                   </button>
@@ -250,8 +272,19 @@ export default function CustomersPage() {
             </select>
           </div>
 
-          <button type="submit" className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 transition">
-            Record Collection & Update Balance
+          <button
+            type="submit"
+            disabled={isPaymentSubmitting}
+            className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2"
+          >
+            {isPaymentSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>RECORDING PAYMENT...</span>
+              </>
+            ) : (
+              <span>Record Collection & Update Balance</span>
+            )}
           </button>
         </form>
       </Modal>
@@ -305,6 +338,36 @@ export default function CustomersPage() {
             </div>
           </div>
 
+          <div className="grid grid-cols-2 gap-4">
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Credit Limit (₹) <span className="text-pepsi-blue font-black">(Editable)</span>
+              </label>
+              <input
+                type="number"
+                required
+                value={custForm.creditLimit}
+                onChange={(e) => setCustForm({ ...custForm, creditLimit: e.target.value })}
+                placeholder="50000"
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black"
+              />
+            </div>
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                Special Discount (%)
+              </label>
+              <input
+                type="number"
+                min="0"
+                max="100"
+                value={custForm.discountPercentage}
+                onChange={(e) => setCustForm({ ...custForm, discountPercentage: e.target.value })}
+                placeholder="0"
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
+              />
+            </div>
+          </div>
+
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Shop Address</label>
             <input
@@ -316,28 +379,19 @@ export default function CustomersPage() {
             />
           </div>
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-              Credit Limit (₹) <span className="text-pepsi-blue font-black">(Editable)</span>
-            </label>
-            <input
-              type="number"
-              required
-              value={custForm.creditLimit}
-              onChange={(e) => setCustForm({ ...custForm, creditLimit: e.target.value })}
-              placeholder="e.g. 50000, 75000, 100000"
-              className="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black text-sm"
-            />
-            <p className="text-[10px] text-slate-400 mt-1">
-              POS sales will automatically block credit orders if outstanding due exceeds this limit.
-            </p>
-          </div>
-
           <button
             type="submit"
-            className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 transition text-sm shadow-md"
+            disabled={isSubmitting}
+            className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm shadow-md flex items-center justify-center space-x-2"
           >
-            {editingCust ? 'Save Customer & Credit Limit' : 'Create Customer Shop'}
+            {isSubmitting ? (
+              <>
+                <Loader2 className="w-4 h-4 animate-spin" />
+                <span>SAVING CUSTOMER...</span>
+              </>
+            ) : (
+              <span>{editingCust ? 'Save Customer Changes' : 'Create Customer Shop'}</span>
+            )}
           </button>
         </form>
       </Modal>
