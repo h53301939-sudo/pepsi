@@ -5,6 +5,7 @@ const Customer = require('../models/Customer');
 const VehicleStock = require('../models/VehicleStock');
 const { recordLedgerTransaction } = require('../utils/ledgerEngine');
 const { logActivity } = require('../utils/logActivity');
+const { sendSaleBillSms } = require('../services/smsService');
 
 // @desc    Process Van Sale POS or Direct Warehouse Counter Sale Transaction & Generate Invoice
 // @route   POST /api/sales
@@ -184,6 +185,9 @@ const createSale = async (req, res) => {
       .populate('vehicle', 'vehicleNumber vehicleName')
       .populate('items.product');
 
+    // Trigger automatic background SMS bill sending to customer via Twilio
+    sendSaleBillSms(populatedSale).catch(err => console.error('Background SMS error:', err));
+
     res.status(201).json(populatedSale);
   } catch (err) {
     console.error('Error creating sale:', err);
@@ -238,8 +242,28 @@ const getSaleById = async (req, res) => {
   res.json(sale);
 };
 
+// @desc    Get PDF Invoice stream for Sale
+// @route   GET /api/sales/:id/pdf
+const getSalePdfById = async (req, res) => {
+  try {
+    const sale = await Sale.findById(req.params.id)
+      .populate('customer')
+      .populate('worker', 'name phone email')
+      .populate('vehicle', 'vehicleNumber vehicleName driverName')
+      .populate('items.product');
+
+    if (!sale) return res.status(404).json({ message: 'Sale invoice not found' });
+    const { streamInvoicePdf } = require('../utils/pdfGenerator');
+    streamInvoicePdf(sale, res);
+  } catch (err) {
+    console.error('Error streaming PDF:', err);
+    res.status(500).json({ message: 'Failed to generate PDF invoice' });
+  }
+};
+
 module.exports = {
   createSale,
   getSales,
-  getSaleById
+  getSaleById,
+  getSalePdfById
 };
