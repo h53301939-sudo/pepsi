@@ -28,7 +28,7 @@ export default function Navbar({ onSearchChange, mobileMenuOpen, setMobileMenuOp
           />
           <div>
             <h1 className="font-extrabold text-base md:text-lg leading-none tracking-tight text-pepsi-blue dark:text-blue-400">
-              PEPSI <span className="text-pepsi-red">VAN SALES</span>
+              DAVID <span className="text-pepsi-red">TRADERS</span>
             </h1>
             <p className="text-[9px] md:text-[10px] uppercase font-semibold tracking-widest text-slate-500 dark:text-slate-400">
               Distribution Hub
