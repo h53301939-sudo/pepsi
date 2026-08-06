@@ -65,6 +65,7 @@ app.use('/api/ledger', require('./routes/ledgerRoutes'));
 app.use('/api/reports', require('./routes/reportRoutes'));
 app.use('/api/activity-logs', require('./routes/activityLogRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
+app.use('/api/targets', require('./routes/targetRoutes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

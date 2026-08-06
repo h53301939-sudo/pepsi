@@ -2,6 +2,7 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import StatCard from '../components/common/StatCard';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
+import TargetModal from '../components/target/TargetModal';
 import {
   Warehouse,
   IndianRupee,
@@ -13,7 +14,11 @@ import {
   Users,
   CreditCard,
   CheckCircle2,
-  DollarSign
+  DollarSign,
+  Target as TargetIcon,
+  Flame,
+  Clock,
+  Edit3
 } from 'lucide-react';
 
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
@@ -24,29 +29,43 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 export default function AdminDashboard() {
   const [data, setData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
+  const [targetData, setTargetData] = useState(null);
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
   const [loading, setLoading] = useState(true);
 
+  const fetchTargetData = async () => {
+    try {
+      const res = await API.get('/targets/current');
+      setTargetData(res.data);
+    } catch (err) {
+      console.error('Error fetching sales target:', err);
+    }
+  };
+
+  const fetchDashboard = async () => {
+    try {
+      const [dashRes, analyticRes] = await Promise.all([
+        API.get('/reports/dashboard'),
+        API.get('/reports/analytics')
+      ]);
+      setData(dashRes.data);
+      setAnalytics(analyticRes.data);
+      await fetchTargetData();
+    } catch (err) {
+      console.error('Error fetching dashboard:', err);
+    } finally {
+      setLoading(false);
+    }
+  };
+
   useEffect(() => {
-    const fetchDashboard = async () => {
-      try {
-        const [dashRes, analyticRes] = await Promise.all([
-          API.get('/reports/dashboard'),
-          API.get('/reports/analytics')
-        ]);
-        setData(dashRes.data);
-        setAnalytics(analyticRes.data);
-      } catch (err) {
-        console.error('Error fetching dashboard:', err);
-      } finally {
-        setLoading(false);
-      }
-    };
     fetchDashboard();
   }, []);
 
   if (loading) return <LoadingSkeleton count={6} />;
 
   const kpis = data?.kpis || {};
+  const targetInfo = targetData?.target || {};
 
   // Sales Trend Chart Config
   const salesChartData = {
@@ -120,104 +139,183 @@ export default function AdminDashboard() {
           color="green"
         />
         <StatCard
-          title="Today's Profit"
-          value={`₹${kpis.todayProfit?.toLocaleString() || 0}`}
-          subtitle="Gross Revenue - Cost"
-          icon={TrendingUp}
-          color="green"
-        />
-        <StatCard
-          title="Pending Credit"
-          value={`₹${kpis.pendingCreditAmount?.toLocaleString() || 0}`}
+          title="Outstanding Dues"
+          value={`₹${kpis.totalOutstandingDues?.toLocaleString() || 0}`}
           subtitle="Customer Balance"
           icon={CreditCard}
           color="red"
         />
+        <StatCard
+          title="Low Stock Items"
+          value={`${kpis.lowStockCount || 0} Products`}
+          subtitle="Re-order Required"
+          icon={AlertTriangle}
+          color="amber"
+        />
       </div>
 
-      {/* Secondary Quick Metrics Row */}
-      <div className="grid grid-cols-2 sm:grid-cols-4 lg:grid-cols-6 gap-3">
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
-          <p className="text-slate-400 uppercase font-bold text-[10px]">Cash Collection</p>
-          <p className="text-base font-extrabold text-slate-900 dark:text-white mt-1">₹{kpis.cashToday?.toLocaleString() || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
-          <p className="text-slate-400 uppercase font-bold text-[10px]">UPI Collection</p>
-          <p className="text-base font-extrabold text-slate-900 dark:text-white mt-1">₹{kpis.upiToday?.toLocaleString() || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
-          <p className="text-slate-400 uppercase font-bold text-[10px]">Today Purchases</p>
-          <p className="text-base font-extrabold text-slate-900 dark:text-white mt-1">₹{kpis.todayPurchasesTotal?.toLocaleString() || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
-          <p className="text-slate-400 uppercase font-bold text-[10px]">Today Returns</p>
-          <p className="text-base font-extrabold text-slate-900 dark:text-white mt-1">₹{kpis.todayReturnsTotal?.toLocaleString() || 0}</p>
-        </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
-          <p className="text-slate-400 uppercase font-bold text-[10px]">Low Stock Items</p>
-          <p className="text-base font-extrabold text-amber-500 mt-1">{kpis.lowStockProducts || 0} SKUs</p>
-        </div>
-        <div className="bg-white dark:bg-slate-800 p-4 rounded-xl border border-slate-200/80 dark:border-slate-700 text-xs">
-          <p className="text-slate-400 uppercase font-bold text-[10px]">Active Vans</p>
-          <p className="text-base font-extrabold text-blue-500 mt-1">{kpis.activeVehicles || 0} Vehicles</p>
-        </div>
-      </div>
+      {/* 🎯 CLEAN NATIVE SALES TARGET VS ACHIEVEMENT CARD */}
+      {targetData && (
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-5">
+          <div className="flex items-center justify-between flex-wrap gap-3 pb-3 border-b border-slate-100 dark:border-slate-700">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl">
+                <TargetIcon className="w-5 h-5 text-pepsi-blue dark:text-blue-400" />
+              </div>
+              <div>
+                <div className="flex items-center space-x-2">
+                  <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">Monthly Sales Goal (Target vs Actual)</h3>
+                  <span className="text-[11px] px-2 py-0.5 rounded-md bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 font-bold">
+                    {targetInfo.month}
+                  </span>
+                </div>
+                <p className="text-xs text-slate-500 dark:text-slate-400">
+                  Track monthly case volume and revenue performance
+                </p>
+              </div>
+            </div>
 
-      {/* Analytics Charts Grid */}
+            <div className="flex items-center space-x-2.5">
+              {/* Pacing Badge */}
+              {targetData.pacingStatus === 'TARGET_ACHIEVED' ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-xs font-bold">
+                  <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                  Goal Achieved 🎉
+                </span>
+              ) : targetData.pacingStatus === 'ON_TRACK' ? (
+                <span className="inline-flex items-center px-3 py-1 rounded-xl bg-blue-100 text-pepsi-blue dark:bg-blue-900/40 dark:text-blue-300 text-xs font-bold">
+                  <Flame className="w-3.5 h-3.5 mr-1 text-pepsi-blue" />
+                  On Track 🚀
+                </span>
+              ) : (
+                <span className="inline-flex items-center px-3 py-1 rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-xs font-bold">
+                  <Clock className="w-3.5 h-3.5 mr-1" />
+                  Behind Daily Pace ⚠️
+                </span>
+              )}
+
+              <button
+                onClick={() => setIsTargetModalOpen(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xs font-bold rounded-xl transition"
+              >
+                <Edit3 className="w-3.5 h-3.5" />
+                <span>Edit Goal</span>
+              </button>
+            </div>
+          </div>
+
+          {/* Progress Bars Grid */}
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            {/* Cases Volume Progress */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-100 dark:border-slate-700 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300">Volume Goal (Cases)</span>
+                <span className="font-extrabold text-slate-900 dark:text-white">
+                  {targetData.actualCases?.toLocaleString()} / {targetInfo.targetCases?.toLocaleString()} Cases
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-pepsi-blue h-full rounded-full transition-all duration-500"
+                  style={{ width: `${targetData.casesProgressPct}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                <span>Completed: <strong className="text-pepsi-blue dark:text-blue-400">{targetData.casesProgressPct}%</strong></span>
+                <span>Remaining: <strong>{Math.max(0, targetInfo.targetCases - targetData.actualCases)?.toLocaleString()} Cases</strong></span>
+              </div>
+            </div>
+
+            {/* Revenue Progress */}
+            <div className="p-4 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-100 dark:border-slate-700 space-y-2">
+              <div className="flex justify-between items-center text-xs">
+                <span className="font-bold text-slate-700 dark:text-slate-300">Revenue Goal (₹)</span>
+                <span className="font-extrabold text-slate-900 dark:text-white">
+                  ₹{targetData.actualRevenue?.toLocaleString()} / ₹{targetInfo.targetRevenue?.toLocaleString()}
+                </span>
+              </div>
+              <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-3 overflow-hidden">
+                <div
+                  className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                  style={{ width: `${targetData.revenueProgressPct}%` }}
+                />
+              </div>
+              <div className="flex justify-between items-center text-[11px] text-slate-500 dark:text-slate-400 font-semibold">
+                <span>Collected: <strong className="text-emerald-600 dark:text-emerald-400">{targetData.revenueProgressPct}%</strong></span>
+                <span>Remaining: <strong>₹{Math.max(0, targetInfo.targetRevenue - targetData.actualRevenue)?.toLocaleString()}</strong></span>
+              </div>
+            </div>
+          </div>
+
+          {/* Key Pacing Analytics Grid */}
+          <div className="grid grid-cols-2 sm:grid-cols-4 gap-3 text-xs">
+            <div className="p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Required Daily Pace</p>
+              <p className="text-base font-extrabold text-amber-600 dark:text-amber-400 mt-0.5">
+                {targetData.requiredDailyCasesPace} <span className="text-xs font-semibold">Cases/Day</span>
+              </p>
+              <p className="text-[10px] text-slate-400">Needed to hit target</p>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Current Daily Avg</p>
+              <p className="text-base font-extrabold text-pepsi-blue dark:text-blue-400 mt-0.5">
+                {targetData.currentDailyCasesAvg} <span className="text-xs font-semibold">Cases/Day</span>
+              </p>
+              <p className="text-[10px] text-slate-400">Based on last {targetData.daysElapsed} days</p>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Days Remaining</p>
+              <p className="text-base font-extrabold text-slate-800 dark:text-slate-200 mt-0.5">
+                {targetData.daysRemaining} <span className="text-xs font-semibold">Days Left</span>
+              </p>
+              <p className="text-[10px] text-slate-400">In {targetInfo.month}</p>
+            </div>
+
+            <div className="p-3 bg-slate-50 dark:bg-slate-700/30 rounded-xl border border-slate-100 dark:border-slate-700">
+              <p className="text-[10px] text-slate-500 dark:text-slate-400 font-bold uppercase tracking-wider">Estimated Total</p>
+              <p className="text-base font-extrabold text-emerald-600 dark:text-emerald-400 mt-0.5">
+                {targetData.projectedCasesEndMonth?.toLocaleString()} <span className="text-xs font-semibold">Cases</span>
+              </p>
+              <p className="text-[10px] text-slate-400">Estimated month-end</p>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Target Modal */}
+      <TargetModal
+        isOpen={isTargetModalOpen}
+        onClose={() => setIsTargetModalOpen(false)}
+        currentTarget={targetInfo}
+        onTargetSaved={fetchTargetData}
+      />
+
+      {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-        {/* Sales Trend Line Chart */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Daily Sales Trend (Last 7 Days)</h3>
-            <span className="text-xs text-slate-400">Revenue (₹)</span>
+            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center">
+              <TrendingUp className="w-4 h-4 mr-2 text-pepsi-blue" />
+              Daily Revenue Trend
+            </h3>
           </div>
           <div className="h-64">
             <Line data={salesChartData} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
         </div>
 
-        {/* Top Selling Products Bar Chart */}
-        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm space-y-4">
+        <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
           <div className="flex items-center justify-between">
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Top Selling Products</h3>
-            <span className="text-xs text-slate-400">Cases Sold</span>
+            <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center">
+              <ShoppingCart className="w-4 h-4 mr-2 text-emerald-600" />
+              Top Selling Products (Cases)
+            </h3>
           </div>
           <div className="h-64">
             <Bar data={topProductsChartData} options={{ responsive: true, maintainAspectRatio: false }} />
           </div>
-        </div>
-      </div>
-
-      {/* Recent Activity Table */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200/80 dark:border-slate-700 shadow-sm space-y-4">
-        <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Sales & Invoices</h3>
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 uppercase text-[10px] font-bold">
-                <th className="py-2.5 px-3">Invoice No</th>
-                <th className="py-2.5 px-3">Customer Shop</th>
-                <th className="py-2.5 px-3">Salesman</th>
-                <th className="py-2.5 px-3">Payment</th>
-                <th className="py-2.5 px-3 text-right">Amount (₹)</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-              {data?.recentSales?.map((sale) => (
-                <tr key={sale._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40">
-                  <td className="py-2.5 px-3 font-bold text-blue-600 dark:text-blue-400">{sale.invoiceNumber}</td>
-                  <td className="py-2.5 px-3 font-semibold">{sale.customer?.shopName || 'Customer'}</td>
-                  <td className="py-2.5 px-3 text-slate-500">{sale.worker?.name || 'Worker'}</td>
-                  <td className="py-2.5 px-3">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                      {sale.paymentMethod}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">₹{sale.netTotal}</td>
-                </tr>
-              ))}
-            </tbody>
-          </table>
         </div>
       </div>
     </div>

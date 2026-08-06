@@ -21,11 +21,11 @@ const seedDatabase = async () => {
 
     // 1. Create Default Settings
     await Setting.create({
-      companyName: 'Pepsi Authorized Distribution Center',
+      companyName: 'DAVID TRADERS',
       companyLogo: 'https://upload.wikimedia.org/wikipedia/commons/0/0f/Pepsi_logo_2023.svg',
       gstNumber: '27AAAAA0000A1Z5',
       address: 'Plot 42, Pepsi Beverage Park, Industrial Zone, Mumbai - 400072',
-      phone: '+91 98765 43210',
+      phone: '+91 8932094428',
       email: 'sales@pepsi-distributor.com',
       currencySymbol: '₹',
       defaultGstPercent: 28,
@@ -34,11 +34,11 @@ const seedDatabase = async () => {
 
     // 2. Create Users (Admin & Workers)
     const adminUser = await User.create({
-      name: 'Rajesh Sharma (Admin)',
+      name: 'ANIRUDH KUMAR (Admin)',
       email: 'admin@pepsi.com',
       password: 'admin123',
       role: 'admin',
-      phone: '+91 99887 76655',
+      phone: '+91 9569703631',
       active: true
     });
 
