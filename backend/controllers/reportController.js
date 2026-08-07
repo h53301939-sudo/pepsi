@@ -51,11 +51,25 @@ const getDashboardStats = async (req, res) => {
   let totalWarehouseStock = 0;
   let totalWarehouseValue = 0;
   let lowStockProducts = 0;
+  const lowStockItemsList = [];
 
   products.forEach(p => {
     totalWarehouseStock += p.warehouseStock;
     totalWarehouseValue += p.warehouseStock * (p.purchasePrice || 0);
-    if (p.warehouseStock <= p.minStock) lowStockProducts++;
+    const minThreshold = (p.minStock !== undefined && p.minStock !== null) ? p.minStock : 10;
+    if (p.warehouseStock <= minThreshold) {
+      lowStockProducts++;
+      lowStockItemsList.push({
+        _id: p._id,
+        name: p.name,
+        size: p.size,
+        brand: p.brand,
+        warehouseStock: p.warehouseStock,
+        minStock: minThreshold,
+        sellingPrice: p.sellingPrice,
+        purchasePrice: p.purchasePrice
+      });
+    }
   });
 
   // 2. Vehicle Stock & Value
@@ -137,6 +151,7 @@ const getDashboardStats = async (req, res) => {
       todayReturnsTotal,
       todayLoadingCount
     },
+    lowStockItems: lowStockItemsList,
     recentSales
   });
 };

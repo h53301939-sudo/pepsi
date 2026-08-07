@@ -1,4 +1,5 @@
 import React, { useState, useEffect } from 'react';
+import { useNavigate } from 'react-router-dom';
 import API from '../services/api';
 import StatCard from '../components/common/StatCard';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
@@ -18,7 +19,10 @@ import {
   Target as TargetIcon,
   Flame,
   Clock,
-  Edit3
+  Edit3,
+  PackagePlus,
+  ChevronDown,
+  ChevronUp
 } from 'lucide-react';
 
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
@@ -27,10 +31,12 @@ import { Line, Bar } from 'react-chartjs-2';
 ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement);
 
 export default function AdminDashboard() {
+  const navigate = useNavigate();
   const [data, setData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [targetData, setTargetData] = useState(null);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [showLowStockDetails, setShowLowStockDetails] = useState(false);
   const [loading, setLoading] = useState(true);
 
   const fetchTargetData = async () => {
@@ -50,6 +56,9 @@ export default function AdminDashboard() {
       ]);
       setData(dashRes.data);
       setAnalytics(analyticRes.data);
+      if (dashRes.data?.lowStockItems?.length > 0) {
+        setShowLowStockDetails(true); // Auto-expand if low stock items exist
+      }
       await fetchTargetData();
     } catch (err) {
       console.error('Error fetching dashboard:', err);
@@ -65,6 +74,7 @@ export default function AdminDashboard() {
   if (loading) return <LoadingSkeleton count={6} />;
 
   const kpis = data?.kpis || {};
+  const lowStockItems = data?.lowStockItems || [];
   const targetInfo = targetData?.target || {};
 
   // Sales Trend Chart Config
@@ -145,14 +155,70 @@ export default function AdminDashboard() {
           icon={CreditCard}
           color="red"
         />
-        <StatCard
-          title="Low Stock Items"
-          value={`${kpis.lowStockCount || 0} Products`}
-          subtitle="Re-order Required"
-          icon={AlertTriangle}
-          color="amber"
-        />
+        <div 
+          onClick={() => setShowLowStockDetails(!showLowStockDetails)} 
+          className="cursor-pointer transition transform hover:scale-[1.02] active:scale-95"
+        >
+          <StatCard
+            title="Low Stock Items"
+            value={`${kpis.lowStockCount || lowStockItems.length || 0} Products`}
+            subtitle="Click to view list"
+            icon={AlertTriangle}
+            color="amber"
+          />
+        </div>
       </div>
+
+      {/* 🚨 LOW STOCK ITEMIZED WARNING BANNER & LIST */}
+      {lowStockItems.length > 0 && showLowStockDetails && (
+        <div className="bg-white dark:bg-slate-800 border border-red-200 dark:border-red-900/60 rounded-2xl p-5 shadow-sm space-y-4 animate-fade-in">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-3">
+              <div className="p-2.5 bg-red-50 dark:bg-red-900/40 rounded-xl">
+                <AlertTriangle className="w-5 h-5 text-red-600 dark:text-red-400" />
+              </div>
+              <div>
+                <h3 className="font-extrabold text-sm text-slate-900 dark:text-white flex items-center space-x-2">
+                  <span>Warehouse Re-Order Required ({lowStockItems.length} Low Items)</span>
+                </h3>
+              </div>
+            </div>
+
+            <button
+              onClick={() => navigate('/purchases')}
+              className="flex items-center space-x-1.5 px-4 py-2 bg-pepsi-blue hover:bg-blue-700 text-white text-xs font-black rounded-xl shadow transition"
+            >
+              <PackagePlus className="w-4 h-4" />
+              <span>Inward Stock (Purchases)</span>
+            </button>
+          </div>
+
+          <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3 pt-1">
+            {lowStockItems.map((item) => (
+              <div
+                key={item._id}
+                className="p-3 bg-slate-50 dark:bg-slate-700/50 rounded-xl border border-slate-200 dark:border-slate-600 text-xs shadow-sm flex items-center justify-between"
+              >
+                <div>
+                  <h4 className="font-black text-slate-900 dark:text-white">
+                    {item.name} <span className="text-[11px] font-semibold text-slate-500">({item.size || '250ml'})</span>
+                  </h4>
+                  <p className="text-[11px] font-bold text-slate-700 dark:text-slate-300 mt-0.5">
+                    Warehouse Stock: <strong className="text-red-600 dark:text-red-400 font-black">{item.warehouseStock} Cases</strong>
+                  </p>
+                  <p className="text-[10px] text-slate-400">Re-order Limit: {item.minStock} Cases</p>
+                </div>
+                <button
+                  onClick={() => navigate('/purchases')}
+                  className="px-3 py-1.5 bg-red-600 text-white font-black text-[11px] rounded-lg hover:bg-red-700 shadow-sm transition"
+                >
+                  Restock
+                </button>
+              </div>
+            ))}
+          </div>
+        </div>
+      )}
 
       {/* 🎯 CLEAN NATIVE SALES TARGET VS ACHIEVEMENT CARD */}
       {targetData && (
