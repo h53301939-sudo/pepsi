@@ -9,7 +9,6 @@ import {
   ShoppingCart,
   Receipt,
   Users,
-  FileText,
   BookOpen,
   BarChart3,
   Activity,
@@ -19,6 +18,7 @@ import {
   ArrowRightLeft,
   Store
 } from 'lucide-react';
+import pepsiLogo from '../../assets/pepsi-logo.png';
 
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   const { user } = useAuth();
@@ -46,10 +46,11 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   const filteredNav = navItems.filter(item => item.role === 'all' || (isAdmin && item.role === 'admin'));
 
   const navContent = (
-    <div className="p-4 flex flex-col justify-between h-full">
+    <div className="p-3.5 flex flex-col justify-between h-full">
       <div className="space-y-1">
-        <div className="px-3 py-2 text-[11px] font-bold text-slate-400 dark:text-slate-500 uppercase tracking-wider">
-          Main Navigation
+        <div className="px-3 py-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center justify-between">
+          <span>Main Navigation</span>
+          <span className="w-1.5 h-1.5 bg-[#0051A5] rounded-full" />
         </div>
         {filteredNav.map((item) => {
           const Icon = item.icon;
@@ -59,10 +60,10 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
               to={item.path}
               onClick={() => setMobileMenuOpen && setMobileMenuOpen(false)}
               className={({ isActive }) =>
-                `flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-medium text-xs transition-all duration-150 ${
+                `flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all duration-150 ${
                   isActive
-                    ? 'bg-pepsi-blue text-white shadow-md shadow-blue-500/20 font-semibold dark:bg-blue-600'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-slate-100 dark:hover:bg-slate-700/60'
+                    ? 'bg-[#0051A5] text-white shadow-md shadow-blue-500/25 border-l-4 border-[#E32934] dark:bg-blue-700'
+                    : 'text-slate-600 dark:text-slate-300 hover:bg-blue-50/70 dark:hover:bg-slate-700/60 hover:text-[#0051A5] dark:hover:text-blue-400'
                 }`
               }
             >
@@ -73,10 +74,13 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
         })}
       </div>
 
-      {/* Footer Branding */}
-      <div className="p-3 mt-6 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-slate-700/50">
-        <p className="text-[11px] font-semibold text-slate-700 dark:text-slate-300">Pepsi ERP v1.0</p>
-        <p className="text-[10px] text-slate-500 dark:text-slate-400">Single Source Ledger Active</p>
+      {/* Footer Pepsi ERP Branding */}
+      <div className="p-3 mt-6 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 flex items-center space-x-3">
+        <img src={pepsiLogo} alt="Pepsi" className="w-7 h-7 object-contain" />
+        <div>
+          <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 leading-tight">Pepsi ERP v1.0</p>
+          <p className="text-[9px] font-semibold text-slate-400">Single Source Ledger Active</p>
+        </div>
       </div>
     </div>
   );
@@ -84,7 +88,7 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   return (
     <>
       {/* Desktop Sidebar */}
-      <aside className="hidden lg:flex w-64 flex-shrink-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700/80 min-h-[calc(100vh-4rem)] flex-col justify-between transition-colors">
+      <aside className="hidden lg:flex w-64 flex-shrink-0 bg-white dark:bg-slate-800 border-r border-slate-200 dark:border-slate-700/80 min-h-[calc(100vh-4rem)] flex-col justify-between transition-colors select-none">
         {navContent}
       </aside>
 

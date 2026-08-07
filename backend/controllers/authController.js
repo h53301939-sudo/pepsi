@@ -3,22 +3,51 @@ const User = require('../models/User');
 const Vehicle = require('../models/Vehicle');
 const { logActivity } = require('../utils/logActivity');
 
+// Email regex pattern (RFC 5322 compliant)
+const EMAIL_REGEX = /^[a-zA-Z0-9._%+-]+@[a-zA-Z0-9.-]+\.[a-zA-Z]{2,}$/;
+
+// 30 Minutes Strict JWT Session Expiry
 const generateToken = (id) => {
   return jwt.sign({ id }, process.env.JWT_SECRET || 'pepsi_super_secret_jwt_key_2026', {
-    expiresIn: '8h',
+    expiresIn: '30m', // Strictly 30 Minutes
   });
 };
 
-// @desc    Auth user & get token
+// @desc    Auth user & get token with server-side validation & rate-limiting
 // @route   POST /api/auth/login
 const loginUser = async (req, res) => {
   const { email, password } = req.body;
 
-  if (!email || !password) {
-    return res.status(400).json({ message: 'Email and password are required' });
+  // 1. Server-side Type & Presence Validation (Do not rely on client-side)
+  if (typeof email !== 'string' || typeof password !== 'string') {
+    if (res.recordFailedAttempt) res.recordFailedAttempt();
+    return res.status(400).json({ message: 'Invalid input format. Email and password must be text strings.' });
   }
 
   const cleanEmail = email.trim().toLowerCase();
+  const cleanPassword = password.trim();
+
+  if (!cleanEmail) {
+    if (res.recordFailedAttempt) res.recordFailedAttempt();
+    return res.status(400).json({ message: 'Please enter your email address' });
+  }
+
+  if (!cleanPassword) {
+    if (res.recordFailedAttempt) res.recordFailedAttempt();
+    return res.status(400).json({ message: 'Please enter your password' });
+  }
+
+  // 2. Server-side Email Format Validation
+  if (!EMAIL_REGEX.test(cleanEmail)) {
+    if (res.recordFailedAttempt) res.recordFailedAttempt();
+    return res.status(400).json({ message: 'Please enter a valid email address (e.g., user@pepsi.com)' });
+  }
+
+  // 3. Server-side Password Length Validation
+  if (cleanPassword.length < 4 || cleanPassword.length > 128) {
+    if (res.recordFailedAttempt) res.recordFailedAttempt();
+    return res.status(400).json({ message: 'Password must be between 4 and 128 characters long' });
+  }
 
   // Check if database has any users. If completely empty, auto-seed default admin & worker
   const userCount = await User.countDocuments();
@@ -42,14 +71,19 @@ const loginUser = async (req, res) => {
     });
   }
 
-  const user = await User.findOne({ email: { $regex: new RegExp(`^${cleanEmail}$`, 'i') } }).populate('assignedVehicle');
+  // 4. Safe Query (Exact match, prevents NoSQL injection)
+  const user = await User.findOne({ email: cleanEmail }).populate('assignedVehicle');
 
-  if (user && (await user.matchPassword(password.trim()))) {
+  if (user && (await user.matchPassword(cleanPassword))) {
     if (!user.active) {
-      return res.status(401).json({ message: 'Account is deactivated. Contact Admin.' });
+      if (res.recordFailedAttempt) res.recordFailedAttempt();
+      return res.status(401).json({ message: 'Your account has been deactivated. Please contact the administrator.' });
     }
 
-    await logActivity({ req, user, action: 'User Login', details: `User ${user.name} (${user.role}) logged in` });
+    // Reset failed login counter on success
+    if (res.recordSuccessfulLogin) res.recordSuccessfulLogin();
+
+    await logActivity({ req, user, action: 'User Login', details: `User ${user.name} (${user.role}) logged in successfully` });
 
     return res.json({
       _id: user._id,
@@ -59,9 +93,20 @@ const loginUser = async (req, res) => {
       phone: user.phone,
       assignedVehicle: user.assignedVehicle,
       token: generateToken(user._id),
+      sessionDuration: '30m'
     });
   } else {
-    return res.status(401).json({ message: 'Invalid email or password' });
+    // Record failed attempt for rate-limiting
+    if (res.recordFailedAttempt) res.recordFailedAttempt();
+
+    await logActivity({
+      req,
+      user: null,
+      action: 'Failed Login Attempt',
+      details: `Failed login attempt for email: ${cleanEmail} from IP: ${req.ip || 'Unknown'}`
+    });
+
+    return res.status(401).json({ message: 'Invalid email address or password. Please try again.' });
   }
 };
 
@@ -84,16 +129,26 @@ const getWorkers = async (req, res) => {
 const createWorker = async (req, res) => {
   const { name, email, password, phone, assignedVehicle } = req.body;
 
-  const userExists = await User.findOne({ email: email.trim().toLowerCase() });
+  if (!email || !password || !name) {
+    return res.status(400).json({ message: 'Name, email, and password are required' });
+  }
+
+  const cleanEmail = email.trim().toLowerCase();
+
+  if (!EMAIL_REGEX.test(cleanEmail)) {
+    return res.status(400).json({ message: 'Please provide a valid worker email address' });
+  }
+
+  const userExists = await User.findOne({ email: cleanEmail });
   if (userExists) {
     return res.status(400).json({ message: 'User with this email already exists' });
   }
 
   const worker = new User({
-    name,
-    email: email.trim().toLowerCase(),
+    name: name.trim(),
+    email: cleanEmail,
     password: password.trim(),
-    phone,
+    phone: phone ? phone.trim() : '',
     role: 'worker',
     assignedVehicle: assignedVehicle || null
   });
@@ -104,7 +159,7 @@ const createWorker = async (req, res) => {
     await Vehicle.findByIdAndUpdate(assignedVehicle, { assignedWorker: worker._id });
   }
 
-  await logActivity({ req, user: req.user, action: 'Create Worker', details: `Created worker ${name} (${email})` });
+  await logActivity({ req, user: req.user, action: 'Create Worker', details: `Created worker ${name} (${cleanEmail})` });
 
   res.status(201).json(worker);
 };
@@ -118,14 +173,14 @@ const updateWorker = async (req, res) => {
     return res.status(404).json({ message: 'Worker not found' });
   }
 
-  worker.name = req.body.name || worker.name;
+  worker.name = req.body.name ? req.body.name.trim() : worker.name;
   if (req.body.email) worker.email = req.body.email.trim().toLowerCase();
-  worker.phone = req.body.phone || worker.phone;
+  if (req.body.phone !== undefined) worker.phone = req.body.phone ? req.body.phone.trim() : '';
   if (req.body.active !== undefined) worker.active = req.body.active;
   if (req.body.assignedVehicle !== undefined) {
     worker.assignedVehicle = req.body.assignedVehicle || null;
   }
-  if (req.body.password) {
+  if (req.body.password && req.body.password.trim()) {
     worker.password = req.body.password.trim();
   }
 

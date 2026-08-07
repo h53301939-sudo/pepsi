@@ -1,5 +1,8 @@
 const Customer = require('../models/Customer');
 const Payment = require('../models/Payment');
+const Sale = require('../models/Sale');
+const User = require('../models/User');
+const Vehicle = require('../models/Vehicle');
 const { logActivity } = require('../utils/logActivity');
 
 // @desc    Get customers (searchable)
@@ -18,6 +21,75 @@ const getCustomers = async (req, res) => {
 
   const customers = await Customer.find(query).sort({ shopName: 1 });
   res.json(customers);
+};
+
+// @desc    Get single customer full 360 profile, all purchases & invoices history
+// @route   GET /api/customers/:id/details
+const getCustomerDetails = async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) {
+      return res.status(404).json({ message: 'Customer not found' });
+    }
+
+    const custId = customer._id;
+
+    // Fetch all sales & invoices made to this customer
+    const sales = await Sale.find({
+      $or: [
+        { customer: custId },
+        { customer: custId.toString() }
+      ]
+    })
+      .populate('worker', 'name phone')
+      .populate('vehicle', 'vehicleNumber')
+      .sort({ createdAt: -1 });
+
+    // Fetch all direct payment collections
+    const payments = await Payment.find({
+      $or: [
+        { customer: custId },
+        { customer: custId.toString() }
+      ]
+    })
+      .populate('receivedBy', 'name')
+      .sort({ createdAt: -1 });
+
+    // Calculate aggregated metrics
+    let totalLifetimePurchases = 0;
+    let totalCasesPurchased = 0;
+    let totalSalesPaid = 0;
+
+    sales.forEach(sale => {
+      totalLifetimePurchases += Number(sale.netTotal || 0);
+      totalSalesPaid += Number(sale.paidAmount || 0);
+      if (Array.isArray(sale.items)) {
+        sale.items.forEach(item => {
+          totalCasesPurchased += Number(item.quantity || 0);
+        });
+      }
+    });
+
+    const totalDirectPayments = payments.reduce((sum, p) => sum + Number(p.amount || 0), 0);
+    const totalAmountPaid = totalSalesPaid + totalDirectPayments;
+
+    res.json({
+      customer,
+      sales,
+      payments,
+      summary: {
+        totalLifetimePurchases,
+        totalCasesPurchased,
+        totalAmountPaid,
+        outstandingBalance: customer.outstandingBalance || 0,
+        totalInvoices: sales.length,
+        totalPayments: payments.length
+      }
+    });
+  } catch (err) {
+    console.error('Error fetching customer details:', err);
+    res.status(500).json({ message: err.message });
+  }
 };
 
 // @desc    Create customer
@@ -106,6 +178,7 @@ const deleteCustomer = async (req, res) => {
 
 module.exports = {
   getCustomers,
+  getCustomerDetails,
   createCustomer,
   updateCustomer,
   addCustomerPayment,

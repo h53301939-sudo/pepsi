@@ -66,26 +66,51 @@ const DashboardLayout = ({ children }) => {
       </div>
 
       {/* Mobile Bottom Quick Navigation Bar */}
-      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 px-2 py-1.5 flex items-center justify-around text-slate-600 dark:text-slate-300 shadow-lg">
-        <NavLink to="/dashboard" className={({isActive}) => `flex flex-col items-center p-1 font-bold text-[10px] ${isActive ? 'text-pepsi-blue dark:text-blue-400' : ''}`}>
-          <LayoutDashboard className="w-5 h-5" />
-          <span>Home</span>
+      <div className="lg:hidden fixed bottom-0 left-0 right-0 z-40 bg-white/95 dark:bg-slate-800/95 backdrop-blur-md border-t border-slate-200 dark:border-slate-700 px-2 py-1 flex items-center justify-around text-slate-600 dark:text-slate-300 shadow-lg">
+        <NavLink to="/dashboard" className={({isActive}) => `flex flex-col items-center p-1 font-extrabold text-[10px] transition ${isActive ? 'text-[#0051A5] dark:text-blue-400' : ''}`}>
+          {({isActive}) => (
+            <>
+              {isActive && <span className="w-1.5 h-1.5 bg-[#E32934] rounded-full mb-0.5" />}
+              <LayoutDashboard className="w-5 h-5" />
+              <span>Home</span>
+            </>
+          )}
         </NavLink>
-        <NavLink to="/pos" className={({isActive}) => `flex flex-col items-center p-1 font-bold text-[10px] ${isActive ? 'text-pepsi-blue dark:text-blue-400' : ''}`}>
-          <ShoppingCart className="w-5 h-5" />
-          <span>POS</span>
+        <NavLink to="/pos" className={({isActive}) => `flex flex-col items-center p-1 font-extrabold text-[10px] transition ${isActive ? 'text-[#0051A5] dark:text-blue-400' : ''}`}>
+          {({isActive}) => (
+            <>
+              {isActive && <span className="w-1.5 h-1.5 bg-[#E32934] rounded-full mb-0.5" />}
+              <ShoppingCart className="w-5 h-5" />
+              <span>POS</span>
+            </>
+          )}
         </NavLink>
-        <NavLink to="/loading" className={({isActive}) => `flex flex-col items-center p-1 font-bold text-[10px] ${isActive ? 'text-pepsi-blue dark:text-blue-400' : ''}`}>
-          <Package className="w-5 h-5" />
-          <span>Loading</span>
+        <NavLink to="/loading" className={({isActive}) => `flex flex-col items-center p-1 font-extrabold text-[10px] transition ${isActive ? 'text-[#0051A5] dark:text-blue-400' : ''}`}>
+          {({isActive}) => (
+            <>
+              {isActive && <span className="w-1.5 h-1.5 bg-[#E32934] rounded-full mb-0.5" />}
+              <Package className="w-5 h-5" />
+              <span>Loading</span>
+            </>
+          )}
         </NavLink>
-        <NavLink to="/customers" className={({isActive}) => `flex flex-col items-center p-1 font-bold text-[10px] ${isActive ? 'text-pepsi-blue dark:text-blue-400' : ''}`}>
-          <Users className="w-5 h-5" />
-          <span>Customers</span>
+        <NavLink to="/customers" className={({isActive}) => `flex flex-col items-center p-1 font-extrabold text-[10px] transition ${isActive ? 'text-[#0051A5] dark:text-blue-400' : ''}`}>
+          {({isActive}) => (
+            <>
+              {isActive && <span className="w-1.5 h-1.5 bg-[#E32934] rounded-full mb-0.5" />}
+              <Users className="w-5 h-5" />
+              <span>Customers</span>
+            </>
+          )}
         </NavLink>
-        <NavLink to="/returns" className={({isActive}) => `flex flex-col items-center p-1 font-bold text-[10px] ${isActive ? 'text-pepsi-blue dark:text-blue-400' : ''}`}>
-          <CornerUpLeft className="w-5 h-5" />
-          <span>Returns</span>
+        <NavLink to="/returns" className={({isActive}) => `flex flex-col items-center p-1 font-extrabold text-[10px] transition ${isActive ? 'text-[#0051A5] dark:text-blue-400' : ''}`}>
+          {({isActive}) => (
+            <>
+              {isActive && <span className="w-1.5 h-1.5 bg-[#E32934] rounded-full mb-0.5" />}
+              <CornerUpLeft className="w-5 h-5" />
+              <span>Returns</span>
+            </>
+          )}
         </NavLink>
       </div>
     </div>

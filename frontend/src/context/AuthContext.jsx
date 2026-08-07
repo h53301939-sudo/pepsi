@@ -2,8 +2,8 @@ import React, { createContext, useContext, useState, useEffect, useRef } from 'r
 import API from '../services/api';
 
 const AuthContext = createContext();
-const SESSION_MAX_AGE_MS = 8 * 60 * 60 * 1000; // 8 Hours Shift Expiry
-const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minutes Inactivity Lock
+export const SESSION_MAX_AGE_MS = 30 * 60 * 1000; // 30 Minutes Absolute Session Expiry
+export const INACTIVITY_TIMEOUT_MS = 30 * 60 * 1000; // 30 Minutes Inactivity Lock
 
 export const AuthProvider = ({ children }) => {
   const [user, setUser] = useState(() => {
@@ -15,6 +15,7 @@ export const AuthProvider = ({ children }) => {
         localStorage.removeItem('pepsi_token');
         localStorage.removeItem('pepsi_user');
         localStorage.removeItem('pepsi_login_time');
+        sessionStorage.setItem('pepsi_logout_reason', 'Your 30-minute session has expired for security. Please sign in again.');
         return null;
       }
       try {
@@ -25,13 +26,17 @@ export const AuthProvider = ({ children }) => {
     }
     return null;
   });
+
   const [loading, setLoading] = useState(true);
   const inactivityTimerRef = useRef(null);
 
-  const logout = () => {
+  const logout = (reason = '') => {
     localStorage.removeItem('pepsi_token');
     localStorage.removeItem('pepsi_user');
     localStorage.removeItem('pepsi_login_time');
+    if (reason) {
+      sessionStorage.setItem('pepsi_logout_reason', reason);
+    }
     setUser(null);
     if (window.location.pathname !== '/login') {
       window.location.href = '/login';
@@ -46,7 +51,7 @@ export const AuthProvider = ({ children }) => {
 
       if (token && loginTime) {
         if (Date.now() - Number(loginTime) > SESSION_MAX_AGE_MS) {
-          logout();
+          logout('Your 30-minute session has expired for security. Please sign in again.');
           setLoading(false);
           return;
         }
@@ -56,7 +61,7 @@ export const AuthProvider = ({ children }) => {
           localStorage.setItem('pepsi_user', JSON.stringify(res.data));
         } catch (err) {
           console.error('Session expired or invalid:', err);
-          logout();
+          logout('Session invalid or expired. Please sign in again.');
         }
       } else {
         setUser(null);
@@ -67,7 +72,7 @@ export const AuthProvider = ({ children }) => {
     checkUser();
   }, []);
 
-  // Inactivity Auto-Logout Timer (30 Minutes of zero mouse/keyboard activity)
+  // Inactivity Auto-Logout Timer (30 Minutes of zero mouse/keyboard/touch activity)
   useEffect(() => {
     if (!user) return;
 
@@ -75,12 +80,12 @@ export const AuthProvider = ({ children }) => {
       if (inactivityTimerRef.current) clearTimeout(inactivityTimerRef.current);
       inactivityTimerRef.current = setTimeout(() => {
         console.warn('User inactive for 30 minutes. Auto-logging out for security...');
-        logout();
+        logout('You have been automatically logged out due to 30 minutes of inactivity.');
       }, INACTIVITY_TIMEOUT_MS);
     };
 
-    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart'];
-    activityEvents.forEach(evt => window.addEventListener(evt, resetInactivityTimer));
+    const activityEvents = ['mousemove', 'keydown', 'click', 'scroll', 'touchstart', 'pointerdown'];
+    activityEvents.forEach(evt => window.addEventListener(evt, resetInactivityTimer, { passive: true }));
     resetInactivityTimer();
 
     return () => {
@@ -94,6 +99,7 @@ export const AuthProvider = ({ children }) => {
     const userData = res.data;
     const now = Date.now();
     
+    sessionStorage.removeItem('pepsi_logout_reason');
     localStorage.setItem('pepsi_token', userData.token);
     localStorage.setItem('pepsi_user', JSON.stringify(userData));
     localStorage.setItem('pepsi_login_time', now.toString());

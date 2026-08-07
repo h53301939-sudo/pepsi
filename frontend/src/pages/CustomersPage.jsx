@@ -2,13 +2,38 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
-import { Users, Plus, CreditCard, DollarSign, Search, CheckCircle, Edit2, AlertCircle, Trash2, Tag, Loader2 } from 'lucide-react';
+import InvoiceModal from '../components/invoice/InvoiceModal';
+import CustomerDetailsModal from '../components/customer/CustomerDetailsModal';
+import {
+  Users,
+  Plus,
+  CreditCard,
+  DollarSign,
+  Search,
+  CheckCircle,
+  Edit2,
+  AlertCircle,
+  Trash2,
+  Tag,
+  Loader2,
+  FileText,
+  Eye,
+  Phone,
+  MapPin,
+  Receipt
+} from 'lucide-react';
 
 export default function CustomersPage() {
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
   
+  // Customer 360° Profile & Invoice Details Modal State
+  const [selectedCustDetails, setSelectedCustDetails] = useState(null);
+  const [isDetailsModalOpen, setIsDetailsModalOpen] = useState(false);
+  const [activeInvoice, setActiveInvoice] = useState(null);
+  const [isInvoiceModalOpen, setIsInvoiceModalOpen] = useState(false);
+
   // Payment Modal State
   const [selectedCust, setSelectedCust] = useState(null);
   const [isPaymentModalOpen, setIsPaymentModalOpen] = useState(false);
@@ -44,6 +69,18 @@ export default function CustomersPage() {
   useEffect(() => {
     fetchCustomers();
   }, [search]);
+
+  // Open 360 Customer Details Modal
+  const handleOpenCustomerDetails = (cust) => {
+    setSelectedCustDetails(cust);
+    setIsDetailsModalOpen(true);
+  };
+
+  // Open Invoice Modal from Customer Details
+  const handleOpenInvoiceFromDetails = (sale) => {
+    setActiveInvoice(sale);
+    setIsInvoiceModalOpen(true);
+  };
 
   // Handle Payment Modal
   const handleOpenPayment = (cust) => {
@@ -147,45 +184,58 @@ export default function CustomersPage() {
 
   return (
     <div className="space-y-6">
+      {/* Header */}
       <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
-          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
-            Customer Directory & Credit Accounts
+          <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight flex items-center space-x-2">
+            <span className="w-1.5 h-6 bg-[#0051A5] rounded-full inline-block mr-1" />
+            <span>Customer Directory & Credit Accounts</span>
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Track retail shop accounts, edit credit limits, set special customer discounts, and collect payments
+            Click any customer shop to view full 360° profile, lifetime purchases, and invoice history
           </p>
         </div>
         <button
           onClick={handleOpenAddCustomer}
-          className="flex items-center space-x-2 px-4 py-2.5 bg-pepsi-blue text-white rounded-xl font-bold text-xs shadow hover:bg-blue-700 transition"
+          className="flex items-center space-x-2 px-4 py-2.5 bg-[#0051A5] hover:bg-blue-700 text-white rounded-xl font-extrabold text-xs shadow-md transition active:scale-95"
         >
           <Plus className="w-4 h-4" />
           <span>+ Add New Customer Shop</span>
         </button>
       </div>
 
-      <div className="flex items-center space-x-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700">
+      {/* Search Bar */}
+      <div className="flex items-center space-x-4 bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm">
         <div className="flex-1 relative">
           <Search className="w-4 h-4 absolute left-3 top-3 text-slate-400" />
           <input
             type="text"
-            placeholder="Search by shop name, owner name, or mobile..."
+            placeholder="Search by shop name, owner name, or mobile number..."
             value={search}
             onChange={(e) => setSearch(e.target.value)}
-            className="w-full pl-9 pr-4 py-2 bg-slate-100 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-xs focus:outline-none focus:ring-2 focus:ring-pepsi-blue dark:text-white"
+            className="w-full pl-9 pr-4 py-2 bg-slate-50 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-xs font-semibold focus:outline-none focus:ring-2 focus:ring-[#0051A5] dark:text-white"
           />
         </div>
       </div>
 
-      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-6">
+      {/* Customer Cards Grid */}
+      <div className="grid grid-cols-1 md:grid-cols-2 lg:grid-cols-3 gap-5">
         {customers.map((c) => (
-          <div key={c._id} className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 flex flex-col justify-between">
+          <div
+            key={c._id}
+            className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200/90 dark:border-slate-700 shadow-sm hover:shadow-md hover:border-[#0051A5]/40 transition space-y-4 flex flex-col justify-between group"
+          >
             <div>
-              <div className="flex items-start justify-between">
-                <div>
+              {/* Header with Title & Action Buttons */}
+              <div className="flex items-start justify-between gap-2">
+                <div 
+                  onClick={() => handleOpenCustomerDetails(c)}
+                  className="cursor-pointer hover:text-[#0051A5] transition flex-1"
+                >
                   <div className="flex items-center space-x-2">
-                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white">{c.shopName}</h3>
+                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-[#0051A5] transition">
+                      {c.shopName}
+                    </h3>
                     {c.discountPercentage > 0 && (
                       <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold text-[10px] rounded-full flex items-center space-x-1">
                         <Tag className="w-3 h-3" />
@@ -193,9 +243,17 @@ export default function CustomersPage() {
                       </span>
                     )}
                   </div>
-                  <p className="text-xs text-slate-500">{c.ownerName} ({c.phone})</p>
+                  <p className="text-xs text-slate-500 font-medium">{c.ownerName} ({c.phone})</p>
                 </div>
-                <div className="flex space-x-1">
+
+                <div className="flex space-x-1 flex-shrink-0">
+                  <button
+                    onClick={() => handleOpenCustomerDetails(c)}
+                    className="p-1.5 rounded-lg bg-blue-50 dark:bg-blue-900/40 text-[#0051A5] dark:text-blue-300 hover:bg-blue-100 transition"
+                    title="View 360° Profile & All Invoices"
+                  >
+                    <Eye className="w-3.5 h-3.5" />
+                  </button>
                   <button
                     onClick={() => handleOpenEditCustomer(c)}
                     className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
@@ -212,33 +270,67 @@ export default function CustomersPage() {
                   </button>
                 </div>
               </div>
-              <p className="text-[11px] text-slate-400 mt-2">{c.address || 'Address not set'}</p>
+
+              <p className="text-[11px] text-slate-400 mt-2 flex items-center space-x-1">
+                <MapPin className="w-3 h-3 flex-shrink-0" />
+                <span className="truncate">{c.address || 'Address not set'}</span>
+              </p>
             </div>
 
-            <div className="border-t border-b py-3 border-slate-100 dark:border-slate-700 space-y-1.5 text-xs">
+            {/* Financial Ledger Summary */}
+            <div className="border-t border-b py-2.5 border-slate-100 dark:border-slate-700 space-y-1.5 text-xs">
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Credit Limit:</span>
-                <span className="font-extrabold text-pepsi-blue dark:text-blue-400 text-sm">₹{c.creditLimit?.toLocaleString()}</span>
+                <span className="font-extrabold text-[#0051A5] dark:text-blue-400 text-sm">
+                  ₹{c.creditLimit?.toLocaleString()}
+                </span>
               </div>
               <div className="flex justify-between items-center">
                 <span className="text-slate-500 font-medium">Outstanding Due:</span>
-                <span className={`font-black ${c.outstandingBalance > 0 ? 'text-red-500 text-sm' : 'text-emerald-600 text-sm'}`}>
+                <span className={`font-black ${c.outstandingBalance > 0 ? 'text-red-600 text-sm' : 'text-emerald-600 text-sm'}`}>
                   ₹{c.outstandingBalance?.toLocaleString()}
                 </span>
               </div>
             </div>
 
-            <button
-              onClick={() => handleOpenPayment(c)}
-              disabled={c.outstandingBalance <= 0}
-              className="w-full py-2.5 bg-emerald-600 text-white font-bold text-xs rounded-xl hover:bg-emerald-700 disabled:opacity-50 transition flex items-center justify-center space-x-1 shadow"
-            >
-              <DollarSign className="w-3.5 h-3.5" />
-              <span>Collect Payment</span>
-            </button>
+            {/* Actions: View Invoices & Collect Payment */}
+            <div className="grid grid-cols-2 gap-2 pt-1">
+              <button
+                onClick={() => handleOpenCustomerDetails(c)}
+                className="w-full py-2 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white font-bold text-xs rounded-xl transition flex items-center justify-center space-x-1.5"
+              >
+                <Receipt className="w-3.5 h-3.5 text-[#0051A5]" />
+                <span>All Invoices</span>
+              </button>
+
+              <button
+                onClick={() => handleOpenPayment(c)}
+                disabled={c.outstandingBalance <= 0}
+                className="w-full py-2 bg-emerald-600 hover:bg-emerald-700 text-white font-bold text-xs rounded-xl disabled:opacity-40 transition flex items-center justify-center space-x-1 shadow-sm"
+              >
+                <DollarSign className="w-3.5 h-3.5" />
+                <span>Collect Due</span>
+              </button>
+            </div>
           </div>
         ))}
       </div>
+
+      {/* 📜 CUSTOMER 360° PROFILE & INVOICES MODAL */}
+      <CustomerDetailsModal
+        isOpen={isDetailsModalOpen}
+        onClose={() => setIsDetailsModalOpen(false)}
+        customerId={selectedCustDetails?._id}
+        initialCustomer={selectedCustDetails}
+        onOpenInvoice={handleOpenInvoiceFromDetails}
+      />
+
+      {/* 🖨️ DETAILED INVOICE MODAL (FOR PRINTING OR VIEWING BILL PDF) */}
+      <InvoiceModal
+        isOpen={isInvoiceModalOpen}
+        onClose={() => setIsInvoiceModalOpen(false)}
+        sale={activeInvoice}
+      />
 
       {/* Collect Payment Modal */}
       <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title={`Collect Payment - ${selectedCust?.shopName}`}>
@@ -382,7 +474,7 @@ export default function CustomersPage() {
           <button
             type="submit"
             disabled={isSubmitting}
-            className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm shadow-md flex items-center justify-center space-x-2"
+            className="w-full py-3.5 bg-[#0051A5] text-white font-extrabold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm shadow-md flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (
               <>

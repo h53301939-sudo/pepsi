@@ -3,10 +3,14 @@ const cors = require('cors');
 const dotenv = require('dotenv');
 const connectDB = require('./config/db');
 const { notFound, errorHandler } = require('./middleware/errorMiddleware');
+const { securityHeaders } = require('./middleware/securityHeaders');
 
 dotenv.config();
 
 const app = express();
+
+// Apply security HTTP headers (XSS, Clickjacking, MIME sniff defense)
+app.use(securityHeaders);
 
 // Connect to Database (with zero-setup MemoryServer fallback)
 connectDB().then(async () => {

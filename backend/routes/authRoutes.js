@@ -9,8 +9,11 @@ const {
   deleteWorker
 } = require('../controllers/authController');
 const { protect, admin } = require('../middleware/authMiddleware');
+const { loginRateLimiter } = require('../middleware/rateLimiter');
 
-router.post('/login', loginUser);
+// Rate-limited login route to prevent brute-force attacks
+router.post('/login', loginRateLimiter, loginUser);
+
 router.get('/me', protect, getMe);
 router.get('/workers', protect, admin, getWorkers);
 router.post('/workers', protect, admin, createWorker);
