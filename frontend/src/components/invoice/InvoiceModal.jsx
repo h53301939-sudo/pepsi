@@ -61,8 +61,15 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
   const calculatedSubTotal = sale.subTotal || sale.items?.reduce((acc, item) => acc + (item.totalAmount || 0), 0) || sale.netTotal;
   const calculatedDiscount = Number(sale.discount || 0) || (calculatedSubTotal > sale.netTotal ? (calculatedSubTotal - sale.netTotal) : 0);
 
+  // Extract Customer Shop and Details cleanly
+  const customerObj = (sale.customer && typeof sale.customer === 'object') ? sale.customer : {};
+  const customerName = customerObj.shopName || (typeof sale.customer === 'string' && sale.customer.length > 5 ? sale.customer : 'Valued Customer');
+  const ownerName = customerObj.ownerName || '';
+  const customerPhone = customerObj.phone || '';
+  const customerAddress = customerObj.address || '';
+
   const handleShareWhatsapp = async () => {
-    const rawPhone = sale.customer?.phone || '';
+    const rawPhone = customerPhone || '';
     const cleanPhone = rawPhone.replace(/\D/g, '');
     let phoneWithCountry = '';
     
@@ -72,7 +79,7 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
       phoneWithCountry = cleanPhone;
     }
 
-    const companyName = agencySettings?.companyName || 'PEPSI BOTTLERS DISTRIBUTOR';
+    const companyName = agencySettings?.companyName || 'DAVID TRADERS (PEPSI DISTRIBUTOR)';
     const dateStr = new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN');
 
     let itemsText = '';
@@ -82,7 +89,7 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
       const fullDisplayName = size && !name.toLowerCase().includes(size.toLowerCase())
         ? `${name} (${size})`
         : name;
-      itemsText += `${idx + 1}. *${fullDisplayName}* x ${item.quantity} Cases = ₹${item.totalAmount.toFixed(2)}\n`;
+      itemsText += `${idx + 1}. *${fullDisplayName}* x ${item.quantity} Cases = ₹${(item.totalAmount || (item.quantity * item.unitPrice)).toFixed(2)}\n`;
     });
 
     const discountLine = calculatedDiscount > 0 ? `🎁 *SPECIAL DISCOUNT:* -₹${calculatedDiscount.toFixed(2)}\n` : '';
@@ -92,7 +99,7 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
 ----------------------------------------
 *SALES INVOICE:* #${sale.invoiceNumber}
 *Date:* ${dateStr}
-*Customer:* ${sale.customer?.shopName || 'Valued Customer'}
+*Customer:* ${customerName}
 *Payment Mode:* ${sale.paymentMethod}
 
 📦 *ITEMS RECEIVED:*
@@ -124,10 +131,10 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
     window.open(whatsappUrl, '_blank');
   };
 
-  const companyName = agencySettings?.companyName || 'PEPSI BOTTLERS DISTRIBUTOR';
-  const agencyAddress = agencySettings?.address || '';
-  const agencyPhone = agencySettings?.phone || '';
-  const agencyEmail = agencySettings?.email || '';
+  const companyName = agencySettings?.companyName || 'DAVID TRADERS (PEPSI DISTRIBUTOR)';
+  const agencyAddress = agencySettings?.address || 'Pepsi Beverage Park, Industrial Distribution Area';
+  const agencyPhone = agencySettings?.phone || '+91 98765 43210';
+  const agencyEmail = agencySettings?.email || 'sales@pepsi-distributor.com';
 
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Invoice #${sale.invoiceNumber}`} maxWidth="max-w-4xl">
@@ -144,7 +151,7 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
                   <span>🎉 SALE COMPLETED SUCCESSFULLY!</span>
                 </h3>
                 <p className="text-xs text-emerald-100 font-semibold mt-0.5">
-                  Invoice #{sale.invoiceNumber} created for {sale.customer?.shopName} (Net: ₹{sale.netTotal?.toLocaleString()})
+                  Invoice #{sale.invoiceNumber} created for {customerName} (Net: ₹{sale.netTotal?.toLocaleString()})
                 </p>
               </div>
             </div>
@@ -176,7 +183,7 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
           </button>
           <button
             onClick={handlePrint}
-            className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
+            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition"
           >
             <Printer className="w-3.5 h-3.5" />
             <span>Print Invoice</span>
@@ -184,7 +191,7 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
           <button
             onClick={handleDownloadPdf}
             disabled={isGeneratingPdf}
-            className="flex items-center space-x-1.5 px-3 py-2 text-xs font-semibold rounded-xl bg-pepsi-blue text-white hover:bg-blue-700 shadow transition disabled:opacity-50"
+            className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-pepsi-blue text-white hover:bg-blue-700 shadow transition disabled:opacity-50"
           >
             <Download className="w-3.5 h-3.5" />
             <span>{isGeneratingPdf ? 'Generating PDF...' : 'Download PDF'}</span>
@@ -223,7 +230,7 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
                   SALES INVOICE
                 </span>
                 <h3 className="text-sm font-black text-slate-900 mt-1.5">#{sale.invoiceNumber}</h3>
-                <p className="text-xs text-slate-500 font-semibold">Date: {new Date(sale.createdAt).toLocaleDateString('en-IN')}</p>
+                <p className="text-xs text-slate-500 font-semibold">Date: {new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN')}</p>
               </div>
             </div>
 
@@ -231,15 +238,17 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
             <div className="grid grid-cols-2 gap-4 p-4 rounded-xl bg-slate-50 border border-slate-100 text-xs">
               <div>
                 <p className="font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">BILLED TO CUSTOMER</p>
-                <h4 className="font-black text-slate-900 text-sm mt-0.5">{sale.customer?.shopName || 'Valued Customer'}</h4>
-                <p className="font-semibold text-slate-700">{sale.customer?.ownerName} {sale.customer?.phone ? `(Ph: ${sale.customer.phone})` : ''}</p>
-                {sale.customer?.address ? (
-                  <p className="text-slate-600 font-semibold mt-1">Address: {sale.customer.address}</p>
+                <h4 className="font-black text-slate-900 text-base mt-0.5">{customerName}</h4>
+                <p className="font-semibold text-slate-700">
+                  {ownerName ? `Owner: ${ownerName}` : ''} {customerPhone ? `(Ph: ${customerPhone})` : ''}
+                </p>
+                {customerAddress ? (
+                  <p className="text-slate-600 font-semibold mt-1">Address: {customerAddress}</p>
                 ) : null}
               </div>
               <div className="text-right">
                 <p className="font-extrabold text-slate-400 uppercase tracking-wider text-[10px]">SOURCE & SALESMAN</p>
-                <p className="font-bold text-slate-800 mt-0.5">Salesman: {sale.worker?.name || 'Worker'}</p>
+                <p className="font-bold text-slate-800 mt-0.5">Salesman: {sale.worker?.name || 'Authorized Staff'}</p>
                 <p className="text-slate-600 font-semibold">
                   Dispatch: {sale.vehicle?.vehicleNumber ? `Van (${sale.vehicle.vehicleNumber})` : 'Direct Warehouse Counter'}
                 </p>
@@ -272,8 +281,8 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
                         <td className="py-2.5 px-3 font-semibold text-slate-500">{idx + 1}</td>
                         <td className="py-2.5 px-3 font-black text-slate-900">{fullDisplayName}</td>
                         <td className="py-2.5 px-3 text-center font-bold">{item.quantity} Cases</td>
-                        <td className="py-2.5 px-3 text-right font-semibold">₹{item.unitPrice.toFixed(2)}</td>
-                        <td className="py-2.5 px-3 text-right font-black text-slate-900">₹{item.totalAmount.toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right font-semibold">₹{Number(item.unitPrice || 0).toFixed(2)}</td>
+                        <td className="py-2.5 px-3 text-right font-black text-slate-900">₹{Number(item.totalAmount || (item.quantity * item.unitPrice) || 0).toFixed(2)}</td>
                       </tr>
                     );
                   })}
@@ -285,7 +294,7 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
             <div className="flex justify-between items-end border-t pt-4 border-slate-200 text-xs">
               <div className="space-y-1">
                 <div className="flex items-center space-x-2">
-                  {sale.status === 'Paid' ? (
+                  {sale.status === 'Paid' || (sale.dueAmount <= 0 && sale.paidAmount >= sale.netTotal) ? (
                     <span className="flex items-center space-x-1 px-2.5 py-0.5 rounded-full bg-emerald-100 text-emerald-800 font-black text-[11px]">
                       <CheckCircle className="w-3.5 h-3.5" />
                       <span>PAID FULL</span>

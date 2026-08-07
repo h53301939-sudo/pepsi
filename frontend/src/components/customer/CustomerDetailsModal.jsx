@@ -220,7 +220,10 @@ export default function CustomerDetailsModal({ isOpen, onClose, customerId, init
 
                             {/* Print / View Invoice Button */}
                             <button
-                              onClick={() => onOpenInvoice && onOpenInvoice(sale)}
+                              onClick={() => onOpenInvoice && onOpenInvoice({
+                                ...sale,
+                                customer: (sale.customer && typeof sale.customer === 'object' && sale.customer.shopName) ? sale.customer : customer
+                              })}
                               className="flex items-center space-x-1 px-3 py-1 bg-pepsi-blue hover:bg-blue-700 text-white rounded-lg font-bold text-xs shadow-sm transition"
                             >
                               <Printer className="w-3.5 h-3.5" />

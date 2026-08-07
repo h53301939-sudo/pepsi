@@ -34,13 +34,14 @@ const getCustomerDetails = async (req, res) => {
 
     const custId = customer._id;
 
-    // Fetch all sales & invoices made to this customer
+    // Fetch all sales & invoices made to this customer, fully populated with customer, worker, and vehicle
     const sales = await Sale.find({
       $or: [
         { customer: custId },
         { customer: custId.toString() }
       ]
     })
+      .populate('customer', 'shopName ownerName phone address')
       .populate('worker', 'name phone')
       .populate('vehicle', 'vehicleNumber')
       .sort({ createdAt: -1 });
@@ -52,6 +53,7 @@ const getCustomerDetails = async (req, res) => {
         { customer: custId.toString() }
       ]
     })
+      .populate('customer', 'shopName ownerName phone address')
       .populate('receivedBy', 'name')
       .sort({ createdAt: -1 });
 
