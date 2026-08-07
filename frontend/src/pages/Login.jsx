@@ -37,7 +37,7 @@ export default function Login() {
 
   return (
     <div className="min-h-screen relative flex items-center justify-center bg-[#070F21] px-4 py-8 sm:py-12 overflow-hidden select-none font-sans">
-      {/* 🌌 Elegant Radial Mesh Ambient Lighting (No cheesy floating circles) */}
+      {/* 🌌 Elegant Radial Mesh Ambient Lighting */}
       <div 
         className="absolute inset-0 pointer-events-none opacity-60"
         style={{
@@ -51,7 +51,7 @@ export default function Login() {
       {/* 🏢 MAIN BALANCED CONTAINER */}
       <div className="w-full max-w-5xl mx-auto grid grid-cols-1 lg:grid-cols-12 gap-8 lg:gap-12 items-center justify-center z-10">
 
-        {/* 🚀 LEFT SIDE - BRAND HERO & BUSINESS VALUE PROPS */}
+        {/* 🚀 LEFT SIDE - WELCOME BACK HERO & BUSINESS VALUE PROPS */}
         <div className="hidden lg:flex lg:col-span-7 flex-col justify-center text-left text-white space-y-6 pr-4">
           
           {/* Badge */}
@@ -62,7 +62,7 @@ export default function Login() {
 
           <div className="space-y-1">
             <h1 className="text-4xl lg:text-5xl font-black tracking-tight text-white leading-tight">
-              DAVID <span className="text-[#2563EB]">TRADERS</span>
+              Welcome <span className="text-[#2563EB]">Back</span>
             </h1>
             <p className="text-lg font-bold text-slate-300">
               Warehouse & Van Sales Management System
@@ -104,11 +104,11 @@ export default function Login() {
           </p>
         </div>
 
-        {/* 🔒 RIGHT SIDE - HUMANIZED FLOATING LOGIN CARD */}
+        {/* 🔒 RIGHT SIDE - DAVID TRADERS PEPSI THEME LOGIN CARD */}
         <div className="lg:col-span-5 flex items-center justify-center">
           <div className="w-full max-w-[400px] bg-white text-slate-900 p-7 sm:p-9 rounded-3xl shadow-[0_20px_60px_-15px_rgba(0,0,0,0.5)] border border-slate-100 space-y-6 mx-auto">
             
-            {/* Header */}
+            {/* Header with Pepsi Logo and DAVID TRADERS in Pepsi Theme */}
             <div className="text-center space-y-2">
               <div className="relative inline-block">
                 <img
@@ -119,8 +119,9 @@ export default function Login() {
               </div>
 
               <div>
-                <h2 className="text-xl sm:text-2xl font-black text-slate-900 tracking-tight">
-                  Welcome Back
+                <h2 className="text-xl sm:text-2xl font-black tracking-tight">
+                  <span className="text-slate-900">DAVID </span>
+                  <span className="text-[#0051A5]">TRADERS</span>
                 </h2>
                 <p className="text-xs text-slate-500 font-semibold mt-0.5">
                   Sign in to manage sales, stock & billing
@@ -160,7 +161,7 @@ export default function Login() {
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                     placeholder="Enter your email"
-                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition"
+                    className="w-full pl-10 pr-4 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#0051A5] focus:ring-2 focus:ring-blue-600/20 transition"
                   />
                 </div>
               </div>
@@ -180,7 +181,7 @@ export default function Login() {
                     value={password}
                     onChange={(e) => setPassword(e.target.value)}
                     placeholder="Enter your password"
-                    className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-blue-600 focus:ring-2 focus:ring-blue-600/20 transition"
+                    className="w-full pl-10 pr-10 py-3 bg-slate-50 border border-slate-200 rounded-xl text-xs sm:text-sm font-semibold text-slate-900 placeholder:text-slate-400 focus:bg-white focus:outline-none focus:border-[#0051A5] focus:ring-2 focus:ring-blue-600/20 transition"
                   />
                   <button
                     type="button"
@@ -199,13 +200,13 @@ export default function Login() {
                     type="checkbox"
                     checked={rememberMe}
                     onChange={(e) => setRememberMe(e.target.checked)}
-                    className="rounded border-slate-300 text-blue-600 focus:ring-blue-500 w-4 h-4 cursor-pointer"
+                    className="rounded border-slate-300 text-[#0051A5] focus:ring-[#0051A5] w-4 h-4 cursor-pointer"
                   />
                   <span>Remember me on this device</span>
                 </label>
               </div>
 
-              {/* Submit Button */}
+              {/* Submit Button in Pepsi Blue */}
               <button
                 type="submit"
                 disabled={loading}
@@ -218,7 +219,7 @@ export default function Login() {
 
             {/* Footer Information */}
             <div className="border-t border-slate-100 pt-4 mt-2 text-center text-slate-400 text-[11px] font-semibold flex items-center justify-center space-x-2">
-              <ShieldCheck className="w-3.5 h-3.5 text-blue-600" />
+              <ShieldCheck className="w-3.5 h-3.5 text-[#0051A5]" />
               <span>Encrypted & Protected Session</span>
             </div>
           </div>
