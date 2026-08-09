@@ -111,11 +111,13 @@ export default function Login() {
             {/* Header with Pepsi Logo and DAVID TRADERS in Pepsi Theme */}
             <div className="text-center space-y-2">
               <div className="relative inline-block">
-                <img
-                  src={pepsiLogo}
-                  alt="Pepsi Logo"
-                  className="w-16 h-16 sm:w-18 sm:h-18 mx-auto object-contain drop-shadow-md mb-1"
-                />
+                <div className="w-16 h-16 sm:w-18 sm:h-18 mx-auto rounded-full overflow-hidden flex items-center justify-center bg-white shadow-md border border-slate-100 p-0.5 mb-1">
+                  <img
+                    src={pepsiLogo}
+                    alt="Pepsi Logo"
+                    className="w-full h-full object-cover rounded-full"
+                  />
+                </div>
               </div>
 
               <div>

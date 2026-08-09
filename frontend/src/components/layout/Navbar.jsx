@@ -28,11 +28,15 @@ export default function Navbar({ onSearchChange, mobileMenuOpen, setMobileMenuOp
         </button>
 
         <div className="flex items-center space-x-2 sm:space-x-2.5">
-          <img
-            src={pepsiLogo}
-            alt="Pepsi Logo"
-            className="w-8 h-8 sm:w-10 sm:h-10 object-contain drop-shadow-sm"
-          />
+          {/* 🔵 Circular Round Pepsi Logo Badge */}
+          <div className="w-8 h-8 sm:w-10 sm:h-10 rounded-full overflow-hidden flex items-center justify-center bg-white shadow-sm border border-slate-200/80 dark:border-slate-700 flex-shrink-0 p-0.5">
+            <img
+              src={pepsiLogo}
+              alt="Pepsi Logo"
+              className="w-full h-full object-cover rounded-full"
+            />
+          </div>
+
           <div>
             <h1 className="font-black text-sm sm:text-base md:text-lg leading-none tracking-tight">
               <span className="text-[#0051A5] dark:text-blue-400">DAVID</span>{' '}
@@ -58,29 +62,28 @@ export default function Navbar({ onSearchChange, mobileMenuOpen, setMobileMenuOp
         {/* Dark/Light Mode Toggle */}
         <button
           onClick={toggleTheme}
-          title="Toggle Light / Dark Mode"
-          className="p-2 rounded-xl bg-slate-100 dark:bg-slate-700/80 text-slate-600 dark:text-slate-300 hover:bg-blue-50 dark:hover:bg-slate-700 transition"
+          className="p-2 text-slate-500 hover:text-slate-700 dark:text-slate-400 dark:hover:text-white rounded-xl hover:bg-slate-100 dark:hover:bg-slate-700/80 transition"
+          title="Toggle Color Theme"
         >
-          {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4 text-slate-600" />}
+          {darkMode ? <Sun className="w-4 h-4 text-amber-400" /> : <Moon className="w-4 h-4" />}
         </button>
 
-        {/* User Dropdown Profile Info */}
-        <div className="flex items-center space-x-2 sm:space-x-3 pl-2 border-l border-slate-200 dark:border-slate-700">
-          <div className="hidden sm:block text-right">
-            <p className="text-xs font-extrabold text-slate-900 dark:text-slate-100 leading-tight">{user?.name}</p>
-            <span className={`inline-block text-[9px] px-2 py-0.5 rounded font-black uppercase ${
-              user?.role === 'admin'
-                ? 'bg-blue-100 text-[#0051A5] dark:bg-blue-900/40 dark:text-blue-300'
-                : 'bg-emerald-100 text-emerald-700 dark:bg-emerald-900/40 dark:text-emerald-300'
-            }`}>
+        {/* User Info & Role Pill */}
+        <div className="flex items-center space-x-2.5 pl-2 border-l border-slate-200 dark:border-slate-700">
+          <div className="text-right hidden sm:block">
+            <p className="text-xs font-black text-slate-800 dark:text-white leading-tight">
+              {user?.name} {user?.role === 'admin' ? '(Admin)' : ''}
+            </p>
+            <span className="inline-block text-[9px] px-1.5 py-0.2 rounded font-extrabold uppercase bg-blue-100 text-[#0051A5] dark:bg-blue-900/60 dark:text-blue-300">
               {user?.role}
             </span>
           </div>
-          
+
+          {/* Logout Button */}
           <button
             onClick={logout}
-            title="Log Out"
-            className="p-2 rounded-xl bg-red-50 dark:bg-red-950/40 text-[#E32934] dark:text-red-400 hover:bg-red-100 dark:hover:bg-red-900/60 transition active:scale-95"
+            className="p-2 text-red-500 hover:text-red-700 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-xl transition"
+            title="Logout"
           >
             <LogOut className="w-4 h-4" />
           </button>

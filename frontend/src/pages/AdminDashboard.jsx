@@ -118,12 +118,13 @@ export default function AdminDashboard() {
           </p>
         </div>
         <div className="flex items-center space-x-2">
-          <span className="inline-flex items-center px-3 py-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-full text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
+          {/* <span className="inline-flex items-center px-3 py-1 bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300 rounded-full text-xs font-semibold border border-emerald-200 dark:border-emerald-800">
             <span className="w-2 h-2 bg-emerald-500 rounded-full mr-2 animate-pulse" />
             Live Ledger Sync Active
-          </span>
+          </span> */}
         </div>
       </div>
+
 
       {/* Primary KPI Cards Grid */}
       <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-5 gap-4">

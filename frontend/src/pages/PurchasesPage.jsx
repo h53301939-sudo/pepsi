@@ -112,9 +112,7 @@ export default function PurchasesPage() {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Stock Inward Purchases (Pepsi Plant)
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Record incoming stock shipments from Pepsi Bottling Company in Cases to increase warehouse inventory
-          </p>
+          
         </div>
         <button
           onClick={() => {
@@ -126,7 +124,7 @@ export default function PurchasesPage() {
           className="flex items-center space-x-2 px-4 py-2.5 bg-pepsi-blue text-white rounded-xl font-bold text-xs shadow hover:bg-blue-700 transition"
         >
           <Plus className="w-4 h-4" />
-          <span>Record New Stock Shipment</span>
+          <span>New Stock</span>
         </button>
       </div>
 

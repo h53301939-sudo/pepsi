@@ -156,9 +156,7 @@ export default function ProductsPage() {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Warehouse Products Catalog
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Manage Pepsi items with Name, Size, Wholesale Cost Price, Van Selling Price and Inventory
-          </p>
+         
         </div>
         <div className="flex items-center space-x-3">
           <button
@@ -200,8 +198,8 @@ export default function ProductsPage() {
               <tr className="bg-slate-50 dark:bg-slate-700/40 text-slate-400 font-bold uppercase text-[10px] tracking-wider border-b border-slate-200 dark:border-slate-700">
                 <th className="py-3 px-4">Item Name</th>
                 <th className="py-3 px-4 text-center">Size</th>
-                <th className="py-3 px-4 text-right">Wholesale Cost Price (₹)</th>
-                <th className="py-3 px-4 text-right">Van Selling Price (₹)</th>
+                <th className="py-3 px-4 text-right">Cost Price (₹)</th>
+                <th className="py-3 px-4 text-right">Selling Price (₹)</th>
                 <th className="py-3 px-4 text-center">Profit Margin (₹/Case)</th>
                 <th className="py-3 px-4 text-center">Warehouse Stock (Cases)</th>
                 <th className="py-3 px-4 text-right">Actions</th>
@@ -325,7 +323,7 @@ export default function ProductsPage() {
           <div className="grid grid-cols-2 gap-4">
             <div>
               <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Wholesale Cost Price / Case (₹)
+                Cost Price / Case (₹)
               </label>
               <input
                 type="number"

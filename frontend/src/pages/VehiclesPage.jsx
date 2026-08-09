@@ -100,9 +100,7 @@ export default function VehiclesPage() {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Van Fleet & Vehicle Inventory
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Track Pepsi delivery vans, salesman assignments, live loaded stock in Cases, and route status
-          </p>
+          
         </div>
         <button
           onClick={handleOpenAddModal}

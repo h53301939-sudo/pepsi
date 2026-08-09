@@ -118,9 +118,7 @@ export default function ReportsPage() {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Reports, Profit Analytics & History
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            View yesterday's sales, custom date range revenue, net profit, cases sold, and download Excel reports
-          </p>
+         
         </div>
 
         <div className="flex items-center space-x-3">

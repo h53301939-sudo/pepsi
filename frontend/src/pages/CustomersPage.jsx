@@ -191,9 +191,7 @@ export default function CustomersPage() {
             <span className="w-1.5 h-6 bg-[#0051A5] rounded-full inline-block mr-1" />
             <span>Customer Directory & Credit Accounts</span>
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Click any customer shop to view full 360° profile, lifetime purchases, and invoice history
-          </p>
+          
         </div>
         <button
           onClick={handleOpenAddCustomer}

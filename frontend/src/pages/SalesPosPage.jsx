@@ -645,10 +645,21 @@ export default function SalesPosPage() {
             </div>
           </div>
 
+          <div>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Shop Address / Route Location</label>
+            <input
+              type="text"
+              placeholder="e.g. Near Bus Stand, Main Market"
+              value={newCustomer.address}
+              onChange={(e) => setNewCustomer({ ...newCustomer, address: e.target.value })}
+              className="w-full p-2 bg-slate-50 dark:bg-slate-700 border rounded-lg text-slate-900 dark:text-white"
+            />
+          </div>
+
           <button
             type="submit"
             disabled={isCustSubmitting}
-            className="w-full py-2.5 bg-pepsi-blue text-white font-bold rounded-lg hover:bg-blue-700 transition"
+            className="w-full py-2.5 bg-[#0051A5] text-white font-bold rounded-lg hover:bg-blue-700 transition"
           >
             {isCustSubmitting ? 'Saving Customer...' : 'Save & Select Customer'}
           </button>

@@ -91,9 +91,7 @@ export default function WorkersPage() {
           <h1 className="text-2xl font-black text-slate-900 dark:text-white tracking-tight">
             Salesman & Worker Staff Management
           </h1>
-          <p className="text-xs text-slate-500 dark:text-slate-400">
-            Manage route salesman credentials and assigned van links
-          </p>
+          
         </div>
         <button
           onClick={handleOpenAddModal}
