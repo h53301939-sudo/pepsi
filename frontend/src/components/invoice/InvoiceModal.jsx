@@ -168,7 +168,7 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
         phoneWithCountry = cleanPhone;
       }
 
-      const companyName = agencySettings?.companyName || 'DAVID TRADERS';
+      const companyName = agencySettings?.companyName || 'DAVID TRADERS';69 
       const dateStr = new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN');
       const pdfDownloadLink = `${window.location.origin}/api/sales/${sale._id}/pdf`;
 
