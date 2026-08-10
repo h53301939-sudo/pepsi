@@ -5,7 +5,7 @@ const Customer = require('../models/Customer');
 const VehicleStock = require('../models/VehicleStock');
 const { recordLedgerTransaction } = require('../utils/ledgerEngine');
 const { logActivity } = require('../utils/logActivity');
-const { sendSaleBillSms } = require('../services/smsService');
+const { sendInvoicePdfDirect, getStatus: getWhatsAppStatus } = require('../services/whatsappService');
 
 // @desc    Process Van Sale POS or Direct Warehouse Counter Sale Transaction & Generate Invoice
 // @route   POST /api/sales
@@ -185,8 +185,12 @@ const createSale = async (req, res) => {
       .populate('vehicle', 'vehicleNumber vehicleName')
       .populate('items.product');
 
-    // Trigger automatic background SMS bill sending to customer via Twilio
-    sendSaleBillSms(populatedSale).catch(err => console.error('Background SMS error:', err));
+    // Trigger automatic real PDF invoice sending via self-hosted WhatsApp Gateway
+    if (customer.phone && getWhatsAppStatus().isReady) {
+      sendInvoicePdfDirect(customer.phone, populatedSale)
+        .then(() => console.log(`✅ [Auto-WhatsApp] PDF Invoice #${invoiceNumber} delivered to +${customer.phone}`))
+        .catch(err => console.error('Auto-WhatsApp sending error:', err.message));
+    }
 
     res.status(201).json(populatedSale);
   } catch (err) {
@@ -221,7 +225,7 @@ const getSales = async (req, res) => {
   }
 
   const sales = await Sale.find(query)
-    .populate('customer', 'shopName ownerName phone')
+    .populate('customer', 'shopName ownerName phone address')
     .populate('worker', 'name')
     .populate('vehicle', 'vehicleNumber vehicleName')
     .sort({ createdAt: -1 });

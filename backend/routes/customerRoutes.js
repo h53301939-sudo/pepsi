@@ -2,6 +2,7 @@ const express = require('express');
 const router = express.Router();
 const {
   getCustomers,
+  getCustomerById,
   getCustomerDetails,
   createCustomer,
   updateCustomer,
@@ -11,6 +12,7 @@ const {
 const { protect, admin } = require('../middleware/authMiddleware');
 
 router.get('/', protect, getCustomers);
+router.get('/:id', protect, getCustomerById);
 router.get('/:id/details', protect, getCustomerDetails);
 router.post('/', protect, createCustomer); // Salesman or admin can quick-create customer
 router.put('/:id', protect, updateCustomer);

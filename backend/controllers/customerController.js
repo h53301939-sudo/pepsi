@@ -23,6 +23,18 @@ const getCustomers = async (req, res) => {
   res.json(customers);
 };
 
+// @desc    Get single customer by ID
+// @route   GET /api/customers/:id
+const getCustomerById = async (req, res) => {
+  try {
+    const customer = await Customer.findById(req.params.id);
+    if (!customer) return res.status(404).json({ message: 'Customer not found' });
+    res.json(customer);
+  } catch (err) {
+    res.status(500).json({ message: err.message });
+  }
+};
+
 // @desc    Get single customer full 360 profile, all purchases & invoices history
 // @route   GET /api/customers/:id/details
 const getCustomerDetails = async (req, res) => {
@@ -180,6 +192,7 @@ const deleteCustomer = async (req, res) => {
 
 module.exports = {
   getCustomers,
+  getCustomerById,
   getCustomerDetails,
   createCustomer,
   updateCustomer,

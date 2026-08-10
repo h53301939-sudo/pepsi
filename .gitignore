@@ -17,3 +17,8 @@ frontend/.env
 Thumbs.db
 .vscode/
 .idea/
+
+# WhatsApp Auth Session & logs (Sensitive)
+whatsapp_auth/
+backend/whatsapp_auth/
+*.log
