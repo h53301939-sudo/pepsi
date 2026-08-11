@@ -20,6 +20,12 @@ API.interceptors.response.use(
   (response) => response,
   (error) => {
     if (error.response && error.response.status === 401) {
+      const msg = error.response.data?.message;
+      if (msg) {
+        try {
+          sessionStorage.setItem('pepsi_logout_reason', msg);
+        } catch (e) {}
+      }
       localStorage.removeItem('pepsi_token');
       localStorage.removeItem('pepsi_user');
       if (window.location.pathname !== '/login') {

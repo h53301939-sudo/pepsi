@@ -77,7 +77,7 @@ const loginUser = async (req, res) => {
   if (user && (await user.matchPassword(cleanPassword))) {
     if (!user.active) {
       if (res.recordFailedAttempt) res.recordFailedAttempt();
-      return res.status(401).json({ message: 'Your account has been deactivated. Please contact the administrator.' });
+      return res.status(401).json({ message: 'Your account has been blocked. Please contact admin.' });
     }
 
     // Reset failed login counter on success
@@ -195,6 +195,89 @@ const updateWorker = async (req, res) => {
   res.json(updatedWorker);
 };
 
+const Sale = require('../models/Sale');
+
+// @desc    Get detailed worker profile with lifetime analytics (sales, profit, cases, recent history)
+// @route   GET /api/auth/workers/:id/profile
+const getWorkerProfile = async (req, res) => {
+  const worker = await User.findById(req.params.id).select('-password').populate('assignedVehicle');
+
+  if (!worker) {
+    return res.status(404).json({ message: 'Worker not found' });
+  }
+
+  // Fetch all sales made by this worker
+  const sales = await Sale.find({ worker: worker._id })
+    .populate('customer', 'shopName ownerName phone address')
+    .populate('items.product', 'name purchasePrice costPrice size currentStock')
+    .sort({ createdAt: -1 });
+
+  let lifetimeSales = 0;
+  let lifetimeProfit = 0;
+  let totalCasesSold = 0;
+
+  sales.forEach((sale) => {
+    lifetimeSales += (sale.netTotal || 0);
+
+    let saleCost = 0;
+    (sale.items || []).forEach((item) => {
+      const qty = item.quantity || 0;
+      totalCasesSold += qty;
+      const unitCost = (item.product && (item.product.purchasePrice || item.product.costPrice)) || 0;
+      saleCost += (qty * unitCost);
+    });
+
+    const saleProfit = (sale.netTotal || 0) - saleCost;
+    lifetimeProfit += saleProfit;
+  });
+
+  const totalInvoices = sales.length;
+  const recentSales = sales.slice(0, 25);
+
+  res.json({
+    worker,
+    analytics: {
+      lifetimeSales,
+      lifetimeProfit,
+      totalCasesSold,
+      totalInvoices,
+      averageOrderValue: totalInvoices > 0 ? Math.round(lifetimeSales / totalInvoices) : 0,
+      profitMargin: lifetimeSales > 0 ? ((lifetimeProfit / lifetimeSales) * 100).toFixed(1) : '0'
+    },
+    recentSales
+  });
+};
+
+// @desc    Toggle worker status (Block / Unblock)
+// @route   PUT /api/auth/workers/:id/toggle-status
+const toggleWorkerStatus = async (req, res) => {
+  const worker = await User.findById(req.params.id);
+
+  if (!worker) {
+    return res.status(404).json({ message: 'Worker not found' });
+  }
+
+  if (worker.role === 'admin') {
+    return res.status(400).json({ message: 'Cannot block administrator accounts' });
+  }
+
+  worker.active = !worker.active;
+  await worker.save();
+
+  const actionText = worker.active ? 'Unblocked Worker' : 'Blocked Worker';
+  await logActivity({
+    req,
+    user: req.user,
+    action: actionText,
+    details: `${actionText}: ${worker.name} (${worker.email})`
+  });
+
+  res.json({
+    message: `Worker account ${worker.active ? 'unblocked and activated' : 'blocked and deactivated'} successfully`,
+    worker
+  });
+};
+
 // @desc    Delete worker
 // @route   DELETE /api/auth/workers/:id
 const deleteWorker = async (req, res) => {
@@ -214,6 +297,8 @@ module.exports = {
   loginUser,
   getMe,
   getWorkers,
+  getWorkerProfile,
+  toggleWorkerStatus,
   createWorker,
   updateWorker,
   deleteWorker,

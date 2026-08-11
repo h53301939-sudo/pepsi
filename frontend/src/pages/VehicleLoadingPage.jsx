@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
+import { useAuth } from '../context/AuthContext';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
-import { Warehouse, CheckCircle, Plus, Trash2, Loader2 } from 'lucide-react';
+import { Warehouse, CheckCircle, Plus, Trash2, Loader2, Truck } from 'lucide-react';
 
 export default function VehicleLoadingPage() {
+  const { user } = useAuth();
   const [vehicles, setVehicles] = useState([]);
   const [products, setProducts] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState([]);
@@ -21,25 +23,37 @@ export default function VehicleLoadingPage() {
         API.get('/products'),
         API.get('/loading/history')
       ]);
-      setVehicles(vRes.data || []);
+
+      let vList = vRes.data || [];
+      if (user?.role === 'worker') {
+        const assignedId = user?.assignedVehicle?._id || user?.assignedVehicle;
+        if (assignedId) {
+          const matchingVan = vList.find(v => String(v._id) === String(assignedId));
+          vList = matchingVan ? [matchingVan] : [];
+        } else {
+          vList = [];
+        }
+      }
+
+      setVehicles(vList);
       setProducts(pRes.data || []);
       setLoadingHistory(hRes.data || []);
       
-      let vid = selectedVehicle || (vRes.data && vRes.data[0]?._id) || '';
+      let vid = (user?.role === 'worker' ? (user?.assignedVehicle?._id || user?.assignedVehicle) : selectedVehicle) || (vList && vList[0]?._id) || '';
       setSelectedVehicle(vid);
       if (pRes.data && pRes.data.length > 0) {
         setLoadItems([{ product: pRes.data[0]._id, cases: '' }]);
       }
     } catch (err) {
       console.error('Error fetching loading data:', err);
-    } fontFinally: {
+    } finally {
       setLoading(false);
     }
   };
 
   useEffect(() => {
     fetchData();
-  }, []);
+  }, [user]);
 
   const handleVehicleChange = (vid) => {
     setSelectedVehicle(vid);
@@ -91,7 +105,9 @@ export default function VehicleLoadingPage() {
             Vehicle Loading & Stock Transfer (Cases)
           </h1>
           <p className="text-xs text-slate-500 dark:text-slate-400">
-            Select items from Admin dropdown and transfer Cases from Warehouse to Delivery Van
+            {user?.role === 'worker' 
+              ? 'Transfer product cases from Central Warehouse onto your assigned delivery van'
+              : 'Select items from Admin dropdown and transfer Cases from Warehouse to Delivery Van'}
           </p>
         </div>
       </div>
@@ -106,19 +122,38 @@ export default function VehicleLoadingPage() {
 
           <form onSubmit={handleConfirmLoading} className="space-y-4 text-xs">
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Select Target Delivery Van</label>
-              <select
-                required
-                value={selectedVehicle}
-                onChange={(e) => handleVehicleChange(e.target.value)}
-                className="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-extrabold text-slate-900 dark:text-white text-sm"
-              >
-                {vehicles.map(v => (
-                  <option key={v._id} value={v._id}>
-                    {v.vehicleNumber} ({v.vehicleName}) - Driver: {v.assignedWorker?.name || v.driverName || 'Unassigned'}
-                  </option>
-                ))}
-              </select>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                {user?.role === 'worker' ? 'Your Assigned Delivery Van' : 'Select Target Delivery Van'}
+              </label>
+
+              {user?.role === 'worker' ? (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center space-x-2.5 shadow-sm">
+                  <Truck className="w-5 h-5 text-pepsi-blue shrink-0" />
+                  <div>
+                    <span className="font-extrabold text-sm text-[#002B7F] dark:text-blue-300 block">
+                      {vehicles[0]
+                        ? `${vehicles[0].vehicleNumber} (${vehicles[0].vehicleName})`
+                        : (user?.assignedVehicle?.vehicleNumber ? `${user.assignedVehicle.vehicleNumber} (${user.assignedVehicle.vehicleName || 'Van'})` : 'No Van Assigned')}
+                    </span>
+                    <span className="text-[11px] text-slate-500 font-semibold">
+                      Assigned Driver: {user?.name || 'Worker'}
+                    </span>
+                  </div>
+                </div>
+              ) : (
+                <select
+                  required
+                  value={selectedVehicle}
+                  onChange={(e) => handleVehicleChange(e.target.value)}
+                  className="w-full p-3 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-extrabold text-slate-900 dark:text-white text-sm"
+                >
+                  {vehicles.map(v => (
+                    <option key={v._id} value={v._id}>
+                      {v.vehicleNumber} ({v.vehicleName}) - Driver: {v.assignedWorker?.name || v.driverName || 'Unassigned'}
+                    </option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="space-y-3 pt-2">
@@ -141,7 +176,7 @@ export default function VehicleLoadingPage() {
                     >
                       {products.map(p => (
                         <option key={p._id} value={p._id}>
-                          {p.name} | Size: {p.size || '250ml'} | Case Price: ₹{p.sellingPrice} | Available Warehouse: {p.warehouseStock} Cases
+                          {p.name} | Size: {p.size || 'Standard'} | Case Price: ₹{p.sellingPrice} | Available Warehouse: {p.warehouseStock || 0} Cases
                         </option>
                       ))}
                     </select>
@@ -159,12 +194,16 @@ export default function VehicleLoadingPage() {
                         updated[idx].cases = e.target.value;
                         setLoadItems(updated);
                       }}
-                      className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-black text-center text-sm"
+                      className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg font-bold text-slate-900 dark:text-white"
                     />
                   </div>
 
                   {loadItems.length > 1 && (
-                    <button type="button" onClick={() => handleRemoveItem(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                    <button
+                      type="button"
+                      onClick={() => handleRemoveItem(idx)}
+                      className="p-2 text-red-500 hover:bg-red-50 dark:hover:bg-red-950/40 rounded-lg"
+                    >
                       <Trash2 className="w-4 h-4" />
                     </button>
                   )}
@@ -174,7 +213,7 @@ export default function VehicleLoadingPage() {
               <button
                 type="button"
                 onClick={handleAddItem}
-                className="text-xs font-bold text-pepsi-blue hover:underline flex items-center space-x-1"
+                className="text-pepsi-blue dark:text-blue-400 font-bold flex items-center space-x-1 hover:underline pt-1"
               >
                 <Plus className="w-4 h-4" />
                 <span>Add Another Item Line</span>
@@ -195,7 +234,7 @@ export default function VehicleLoadingPage() {
             <button
               type="submit"
               disabled={isSubmitting}
-              className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center space-x-2 text-sm shadow-md"
+              className="w-full py-3 bg-pepsi-blue text-white rounded-xl font-black text-sm hover:bg-blue-700 transition flex items-center justify-center space-x-2 shadow-lg shadow-blue-600/30 disabled:opacity-50"
             >
               {isSubmitting ? (
                 <>
@@ -212,21 +251,32 @@ export default function VehicleLoadingPage() {
           </form>
         </div>
 
-        {/* Loading History Log (1 col) */}
+        {/* Recent Loading History (1 col) */}
         <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-          <h3 className="text-sm font-bold text-slate-900 dark:text-white">Recent Van Loading Logs</h3>
-          <div className="space-y-3 max-h-[500px] overflow-y-auto pr-1">
-            {loadingHistory.slice(0, 15).map((h) => (
-              <div key={h._id} className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-100 dark:border-slate-700 text-xs space-y-1">
-                <div className="flex justify-between font-bold text-slate-900 dark:text-white">
-                  <span>{h.product?.name} ({h.product?.size || '250ml'})</span>
-                  <span className="text-blue-600 dark:text-blue-400">+{h.quantity} Cases</span>
+          <h3 className="text-sm font-bold text-slate-900 dark:text-white flex items-center space-x-2">
+            <span>Recent Van Loadings</span>
+          </h3>
+
+          <div className="space-y-3 max-h-[500px] overflow-y-auto">
+            {loadingHistory.map((h) => (
+              <div key={h._id} className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-600 space-y-1">
+                <div className="flex justify-between items-start">
+                  <span className="font-black text-slate-900 dark:text-white text-xs">{h.vehicle?.vehicleNumber}</span>
+                  <span className="text-[10px] text-slate-400">
+                    {new Date(h.createdAt).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                  </span>
                 </div>
-                <p className="text-[11px] text-slate-500">
-                  Case Price: ₹{h.product?.sellingPrice} | Van: <span className="font-semibold">{h.destId?.vehicleNumber}</span>
-                </p>
+                <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                  Total Cases Loaded: <span className="font-black text-emerald-600">{(h.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)}</span>
+                </div>
+                <div className="text-[10px] text-slate-400">
+                  Worker: {h.loadedBy?.name || 'Admin'}
+                </div>
               </div>
             ))}
+            {loadingHistory.length === 0 && (
+              <p className="text-center py-6 text-slate-400 text-xs italic">No load logs found.</p>
+            )}
           </div>
         </div>
       </div>

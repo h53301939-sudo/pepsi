@@ -11,7 +11,7 @@ const protect = async (req, res, next) => {
       req.user = await User.findById(decoded.id).select('-password');
 
       if (!req.user || !req.user.active) {
-        return res.status(401).json({ message: 'User account is deactivated or not found.' });
+        return res.status(401).json({ message: 'Your account has been blocked. Please contact admin.' });
       }
 
       return next();

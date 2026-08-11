@@ -82,8 +82,12 @@ const getDashboardStats = async (req, res) => {
     totalVehicleValue += vs.quantity * (vs.product?.purchasePrice || 0);
   });
 
-  // 3. Today's Sales & Payment Breakdown
-  const todaySales = await Sale.find({ createdAt: { $gte: start, $lte: end } });
+  // 3. Today's Sales & Payment Breakdown (Filtered by worker if requested)
+  const salesQuery = { createdAt: { $gte: start, $lte: end } };
+  if (req.query.worker) {
+    salesQuery.worker = req.query.worker;
+  }
+  const todaySales = await Sale.find(salesQuery);
   let todaySalesTotal = 0;
   let cashToday = 0;
   let upiToday = 0;
@@ -126,8 +130,9 @@ const getDashboardStats = async (req, res) => {
     todayProfit += (sale.netTotal - saleCost);
   }
 
-  // 8. Recent Sales & Activity
-  const recentSales = await Sale.find()
+  // 8. Recent Sales & Activity (Filtered by worker if requested)
+  const recentSalesQuery = req.query.worker ? { worker: req.query.worker } : {};
+  const recentSales = await Sale.find(recentSalesQuery)
     .populate('customer', 'shopName ownerName')
     .populate('worker', 'name')
     .sort({ createdAt: -1 })

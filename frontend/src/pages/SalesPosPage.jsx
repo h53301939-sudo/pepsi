@@ -4,7 +4,7 @@ import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import Modal from '../components/common/Modal';
-import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Tag } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Tag, Truck } from 'lucide-react';
 
 export default function SalesPosPage() {
   const { user } = useAuth();
@@ -85,21 +85,36 @@ export default function SalesPosPage() {
         API.get('/vehicles'),
         API.get('/customers')
       ]);
-      const vList = vRes.data || [];
+      let vList = vRes.data || [];
       const cList = cRes.data || [];
+
+      // If worker, restrict strictly to worker's assigned vehicle only
+      if (user?.role === 'worker') {
+        const assignedId = user?.assignedVehicle?._id || user?.assignedVehicle;
+        if (assignedId) {
+          const matchingVan = vList.find(v => String(v._id) === String(assignedId));
+          vList = matchingVan ? [matchingVan] : [];
+        } else {
+          vList = [];
+        }
+      }
 
       setVehicles(vList);
       setCustomers(cList);
 
-      const vanWithStock = vList.find(v => (v.totalStockUnits || 0) > 0);
-
-      let vid = selectedVehicleId;
-      if (!vid || !vList.some(v => v._id === vid)) {
-        vid = user?.assignedVehicle?._id || vanWithStock?._id || vList[0]?._id || '';
+      let vid = '';
+      if (user?.role === 'worker') {
+        vid = user?.assignedVehicle?._id || user?.assignedVehicle || (vList[0]?._id || '');
       } else {
-        const currentSavedVan = vList.find(v => v._id === vid);
-        if (currentSavedVan && (currentSavedVan.totalStockUnits || 0) === 0 && vanWithStock) {
-          vid = vanWithStock._id;
+        const vanWithStock = vList.find(v => (v.totalStockUnits || 0) > 0);
+        vid = selectedVehicleId;
+        if (!vid || !vList.some(v => v._id === vid)) {
+          vid = vanWithStock?._id || vList[0]?._id || '';
+        } else {
+          const currentSavedVan = vList.find(v => v._id === vid);
+          if (currentSavedVan && (currentSavedVan.totalStockUnits || 0) === 0 && vanWithStock) {
+            vid = vanWithStock._id;
+          }
         }
       }
 
@@ -271,21 +286,35 @@ export default function SalesPosPage() {
             </span>
           </div>
 
-          {/* Van Selector */}
-          <div className="flex items-center space-x-2">
-            <span className="text-xs font-bold text-slate-500 uppercase text-[10px]">Select Route Van:</span>
-            <select
-              value={selectedVehicleId}
-              onChange={(e) => handleVehicleChange(e.target.value)}
-              className="p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs"
-            >
-              {vehicles.map((v) => (
-                <option key={v._id} value={v._id}>
-                  {v.vehicleNumber} ({v.vehicleName}) - {v.totalStockUnits || 0} Cases Loaded
-                </option>
-              ))}
-            </select>
-          </div>
+          {/* Van Selector (Locked for Worker, Selectable for Admin) */}
+          {user?.role === 'worker' ? (
+            <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-950/50 px-3.5 py-2 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
+              <Truck className="w-4 h-4 text-pepsi-blue shrink-0" />
+              <div>
+                <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Assigned Route Van</span>
+                <span className="font-extrabold text-xs text-[#002B7F] dark:text-blue-300">
+                  {selectedVehicleObj
+                    ? `${selectedVehicleObj.vehicleNumber} (${selectedVehicleObj.vehicleName}) • ${selectedVehicleObj.totalStockUnits || 0} Cases`
+                    : (user?.assignedVehicle?.vehicleNumber ? `${user.assignedVehicle.vehicleNumber} (${user.assignedVehicle.vehicleName || 'Van'})` : 'No Van Assigned')}
+                </span>
+              </div>
+            </div>
+          ) : (
+            <div className="flex items-center space-x-2">
+              <span className="text-xs font-bold text-slate-500 uppercase text-[10px]">Select Route Van:</span>
+              <select
+                value={selectedVehicleId}
+                onChange={(e) => handleVehicleChange(e.target.value)}
+                className="p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs"
+              >
+                {vehicles.map((v) => (
+                  <option key={v._id} value={v._id}>
+                    {v.vehicleNumber} ({v.vehicleName}) - {v.totalStockUnits || 0} Cases Loaded
+                  </option>
+                ))}
+              </select>
+            </div>
+          )}
         </div>
 
         {/* Customer Selection Bar */}

@@ -21,9 +21,20 @@ export default function ReturnsPage() {
         API.get('/vehicles'),
         API.get('/returns')
       ]);
-      setVehicles(vRes.data || []);
+      let vList = vRes.data || [];
+      if (user?.role === 'worker') {
+        const assignedId = user?.assignedVehicle?._id || user?.assignedVehicle;
+        if (assignedId) {
+          const matchingVan = vList.find(v => String(v._id) === String(assignedId));
+          vList = matchingVan ? [matchingVan] : [];
+        } else {
+          vList = [];
+        }
+      }
+
+      setVehicles(vList);
       setReturnsHistory(rRes.data || []);
-      let vid = user?.assignedVehicle?._id || (vRes.data && vRes.data[0]?._id) || '';
+      let vid = user?.assignedVehicle?._id || user?.assignedVehicle || (vList && vList[0]?._id) || '';
       setSelectedVehicle(vid);
       if (vid) fetchVanStock(vid);
     } catch (err) {
@@ -120,16 +131,29 @@ export default function ReturnsPage() {
 
           <form onSubmit={handleReturnSubmit} className="space-y-4 text-xs">
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Select Delivery Van</label>
-              <select
-                value={selectedVehicle}
-                onChange={(e) => handleVehicleChange(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-bold text-slate-900 dark:text-white"
-              >
-                {vehicles.map(v => (
-                  <option key={v._id} value={v._id}>{v.vehicleNumber} ({v.vehicleName})</option>
-                ))}
-              </select>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
+                {user?.role === 'worker' ? 'Your Assigned Delivery Van' : 'Select Delivery Van'}
+              </label>
+              {user?.role === 'worker' ? (
+                <div className="p-3 bg-blue-50 dark:bg-blue-950/50 border border-blue-200 dark:border-blue-800 rounded-xl flex items-center space-x-2">
+                  <Truck className="w-4 h-4 text-pepsi-blue shrink-0" />
+                  <span className="font-extrabold text-xs text-[#002B7F] dark:text-blue-300">
+                    {vehicles[0]
+                      ? `${vehicles[0].vehicleNumber} (${vehicles[0].vehicleName})`
+                      : (user?.assignedVehicle?.vehicleNumber ? `${user.assignedVehicle.vehicleNumber} (${user.assignedVehicle.vehicleName || 'Van'})` : 'No Van Assigned')}
+                  </span>
+                </div>
+              ) : (
+                <select
+                  value={selectedVehicle}
+                  onChange={(e) => handleVehicleChange(e.target.value)}
+                  className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl font-bold text-slate-900 dark:text-white"
+                >
+                  {vehicles.map(v => (
+                    <option key={v._id} value={v._id}>{v.vehicleNumber} ({v.vehicleName})</option>
+                  ))}
+                </select>
+              )}
             </div>
 
             <div className="space-y-2">
