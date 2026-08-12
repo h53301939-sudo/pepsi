@@ -40,7 +40,7 @@ const loginUser = async (req, res) => {
   // 2. Server-side Email Format Validation
   if (!EMAIL_REGEX.test(cleanEmail)) {
     if (res.recordFailedAttempt) res.recordFailedAttempt();
-    return res.status(400).json({ message: 'Please enter a valid email address (e.g., user@pepsi.com)' });
+    return res.status(400).json({ message: 'Please enter a valid email address' });
   }
 
   // 3. Server-side Password Length Validation

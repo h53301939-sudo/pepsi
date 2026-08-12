@@ -50,7 +50,7 @@ export default function CustomersPage() {
     ownerName: '',
     phone: '',
     address: '',
-    creditLimit: '50000',
+    creditLimit: '5000',
     discountPercentage: '0'
   });
   const [formError, setFormError] = useState('');
@@ -116,7 +116,7 @@ export default function CustomersPage() {
       ownerName: '',
       phone: '',
       address: '',
-      creditLimit: '50000',
+      creditLimit: '5000',
       discountPercentage: '0'
     });
     setIsCustModalOpen(true);
@@ -130,7 +130,7 @@ export default function CustomersPage() {
       ownerName: cust.ownerName,
       phone: cust.phone,
       address: cust.address || '',
-      creditLimit: cust.creditLimit || '50000',
+      creditLimit: cust.creditLimit || '5000',
       discountPercentage: cust.discountPercentage || '0'
     });
     setIsCustModalOpen(true);
@@ -150,7 +150,7 @@ export default function CustomersPage() {
     try {
       const payload = {
         ...custForm,
-        creditLimit: Number(custForm.creditLimit || 50000),
+        creditLimit: Number(custForm.creditLimit || 5000),
         discountPercentage: Number(custForm.discountPercentage || 0)
       };
 
