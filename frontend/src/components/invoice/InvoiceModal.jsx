@@ -251,88 +251,15 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
   return (
     <Modal isOpen={isOpen} onClose={onClose} title={`Invoice #${sale.invoiceNumber}`} maxWidth="max-w-4xl">
       <div className="space-y-4">
-        {/* 🎉 POPUP SUCCESS MESSAGE BANNER - Only show right after completing a new sale */}
-        {isNewSale && (
-          <div className="bg-gradient-to-r from-emerald-500 to-teal-600 text-white p-3.5 sm:p-4 rounded-2xl shadow-lg flex items-center justify-between animate-fade-in flex-wrap gap-2">
-            <div className="flex items-center space-x-3">
-              <div className="p-2 sm:p-2.5 bg-white/20 rounded-xl backdrop-blur-md">
-                <CheckCircle className="w-6 h-6 sm:w-7 sm:h-7 text-white animate-pulse" />
-              </div>
-              <div>
-                <h3 className="text-xs sm:text-base font-black tracking-wide flex items-center space-x-2">
-                  <span>🎉 SALE COMPLETED SUCCESSFULLY!</span>
-                </h3>
-                <p className="text-[11px] sm:text-xs text-emerald-100 font-semibold mt-0.5">
-                  Invoice #{sale.invoiceNumber} created for {customerName} {customerPhone ? `(${customerPhone})` : ''} (Net: ₹{sale.netTotal?.toLocaleString()})
-                </p>
-              </div>
-            </div>
-            <button
-              onClick={handleSendAutomatedPdf}
-              disabled={waServerSending || isGeneratingPdf}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-white text-emerald-700 font-black text-xs rounded-xl shadow hover:bg-emerald-50 transition active:scale-95 flex-shrink-0 disabled:opacity-50"
-            >
-              {waServerSending ? (
-                <Loader2 className="w-3.5 h-3.5 animate-spin text-emerald-600" />
-              ) : (
-                <Zap className="w-3.5 h-3.5 fill-emerald-600 text-emerald-600" />
-              )}
-              <span>Send PDF to {customerPhone ? customerPhone : 'Customer'}</span>
-            </button>
-          </div>
-        )}
-
-        {/* Server WhatsApp Success Notice */}
-        {waServerSuccess && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 p-3 rounded-xl text-xs font-bold text-center animate-fade-in space-y-1">
-            <p className="flex items-center justify-center space-x-1.5 font-black text-sm text-emerald-800 dark:text-emerald-300">
-              <CheckCircle2 className="w-4 h-4 text-emerald-600" />
-              <span>{waServerSuccess}</span>
-            </p>
-          </div>
-        )}
-
-        {/* Server WhatsApp Notice */}
-        {waServerNotice && (
-          <div className="bg-amber-50 dark:bg-amber-950/40 border border-amber-200 dark:border-amber-700 text-amber-900 dark:text-amber-200 p-2.5 rounded-xl text-xs font-bold text-center animate-fade-in">
-            {waServerNotice}
-          </div>
-        )}
-
-        {/* Copy / PDF Download Notice Banner */}
-        {copiedNotice && (
-          <div className="bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-300 dark:border-emerald-700 text-emerald-900 dark:text-emerald-200 p-3 rounded-xl text-xs font-bold text-center animate-fade-in space-y-1">
-            <p className="flex items-center justify-center space-x-1.5 font-black text-sm text-emerald-800 dark:text-emerald-300">
-              <span>✅ WhatsApp Chat Opened for {customerName}!</span>
-            </p>
-            <p className="text-slate-600 dark:text-slate-300 font-semibold">
-              Opening chat for <span className="text-emerald-700 dark:text-emerald-400 font-black">{customerPhone ? `+91 ${customerPhone}` : 'customer'}</span>. Click the green <strong>Send button</strong> in WhatsApp to send the bill!
-            </p>
-          </div>
-        )}
-
-        {/* Action Controls */}
+        {/* Action Controls Toolbar (Cleaned: Print & Download PDF Only) */}
         <div className="flex items-center justify-between pb-2 border-b border-slate-100 dark:border-slate-700 flex-wrap gap-2">
           {/* Customer info pill */}
           <div className="flex items-center space-x-2 text-xs font-bold text-slate-600 dark:text-slate-300">
             <Phone className="w-3.5 h-3.5 text-pepsi-blue" />
-            <span>Customer WhatsApp: <strong className="text-slate-900 dark:text-white">{customerPhone ? `+91 ${customerPhone}` : 'Not provided'}</strong></span>
+            <span>Customer Contact: <strong className="text-slate-900 dark:text-white">{customerPhone ? `+91 ${customerPhone}` : 'Not provided'}</strong></span>
           </div>
 
-          <div className="flex items-center space-x-2 flex-wrap gap-y-2">
-            <button
-              onClick={handleSendAutomatedPdf}
-              disabled={waServerSending || isGeneratingPdf}
-              className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-black rounded-xl bg-emerald-600 text-white hover:bg-emerald-700 shadow-md transition active:scale-95 disabled:opacity-50"
-              title={`Send exact PDF invoice directly to ${customerPhone || 'customer'}`}
-            >
-              {waServerSending ? (
-                <Loader2 className="w-4 h-4 animate-spin text-white" />
-              ) : (
-                <Zap className="w-4 h-4 fill-white text-emerald-600" />
-              )}
-              <span>Send PDF on WhatsApp ({customerPhone || 'Customer'})</span>
-            </button>
+          <div className="flex items-center space-x-2">
             <button
               onClick={handlePrint}
               className="flex items-center space-x-1.5 px-3.5 py-2 text-xs font-semibold rounded-xl bg-slate-100 dark:bg-slate-700 text-slate-700 dark:text-slate-200 hover:bg-slate-200 dark:hover:bg-slate-600 transition"

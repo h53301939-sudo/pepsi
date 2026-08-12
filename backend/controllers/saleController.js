@@ -185,14 +185,34 @@ const createSale = async (req, res) => {
       .populate('vehicle', 'vehicleNumber vehicleName')
       .populate('items.product');
 
-    // Trigger automatic real PDF invoice sending via self-hosted WhatsApp Gateway
-    if (customer.phone && getWhatsAppStatus().isReady) {
+    // Check WhatsApp Gateway status and auto-deliver if connected
+    let whatsappDelivery = { status: 'not_connected', message: 'WhatsApp not connected' };
+    const waStatus = getWhatsAppStatus();
+
+    if (!customer.phone) {
+      whatsappDelivery = {
+        status: 'no_phone',
+        message: 'No mobile number registered for this customer'
+      };
+    } else if (waStatus && waStatus.isReady) {
       sendInvoicePdfDirect(customer.phone, populatedSale)
         .then(() => console.log(`✅ [Auto-WhatsApp] PDF Invoice #${invoiceNumber} delivered to +${customer.phone}`))
         .catch(err => console.error('Auto-WhatsApp sending error:', err.message));
+      whatsappDelivery = {
+        status: 'sent',
+        message: `Bill sent successfully to ${customer.phone}`
+      };
+    } else {
+      whatsappDelivery = {
+        status: 'not_connected',
+        message: 'WhatsApp not connected (Connect in Settings)'
+      };
     }
 
-    res.status(201).json(populatedSale);
+    const responseData = populatedSale.toObject ? populatedSale.toObject() : populatedSale;
+    responseData.whatsappDelivery = whatsappDelivery;
+
+    res.status(201).json(responseData);
   } catch (err) {
     console.error('Error creating sale:', err);
     res.status(500).json({ message: err.message || 'Failed to create sale' });

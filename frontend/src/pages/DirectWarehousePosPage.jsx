@@ -3,6 +3,7 @@ import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import InvoiceModal from '../components/invoice/InvoiceModal';
+import SaleSuccessModal from '../components/pos/SaleSuccessModal';
 import Modal from '../components/common/Modal';
 import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Store, Tag } from 'lucide-react';
 
@@ -34,6 +35,7 @@ export default function DirectWarehousePosPage() {
 
   const [loading, setLoading] = useState(true);
   const [generatedSale, setGeneratedSale] = useState(null);
+  const [isSuccessModalOpen, setIsSuccessModalOpen] = useState(false);
   const [isInvoiceOpen, setIsInvoiceOpen] = useState(false);
   const [isNewCustModalOpen, setIsNewCustModalOpen] = useState(false);
 
@@ -175,7 +177,7 @@ export default function DirectWarehousePosPage() {
 
       const res = await API.post('/sales', salePayload);
       setGeneratedSale(res.data);
-      setIsInvoiceOpen(true);
+      setIsSuccessModalOpen(true);
       
       setCart([]);
       setDiscountAmount('');
@@ -539,7 +541,18 @@ export default function DirectWarehousePosPage() {
         </div>
       )}
 
-      {/* Invoice Modal */}
+      {/* 🌟 1. SALE COMPLETED SUCCESS MODAL (MATCHING IMAGE EXACTLY) */}
+      <SaleSuccessModal
+        isOpen={isSuccessModalOpen}
+        onClose={() => setIsSuccessModalOpen(false)}
+        onViewBill={() => {
+          setIsSuccessModalOpen(false);
+          setIsInvoiceOpen(true);
+        }}
+        sale={generatedSale}
+      />
+
+      {/* 📄 2. Detailed Invoice Modal (Opened via 'View Bill') */}
       {generatedSale && (
         <InvoiceModal
           isOpen={isInvoiceOpen}
