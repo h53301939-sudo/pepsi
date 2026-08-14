@@ -19,6 +19,7 @@ import {
   Store
 } from 'lucide-react';
 import pepsiLogo from '../../assets/pepsi-logo.png';
+import PWAInstallButton from '../common/PWAInstallButton';
 
 export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   const { user } = useAuth();
@@ -74,12 +75,17 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
         })}
       </div>
 
-      {/* Footer Pepsi ERP Branding */}
-      <div className="p-3 mt-6 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 flex items-center space-x-3">
-        <img src={pepsiLogo} alt="Pepsi" className="w-7 h-7 object-contain" />
-        <div>
-          <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 leading-tight">Pepsi ERP v1.0</p>
-          <p className="text-[9px] font-semibold text-slate-400">Single Source Ledger Active</p>
+      <div>
+        {/* PWA Install Promo Box (Auto-hides when installed) */}
+        <PWAInstallButton variant="sidebar" />
+
+        {/* Footer Pepsi ERP Branding */}
+        <div className="p-3 mt-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 flex items-center space-x-3">
+          <img src={pepsiLogo} alt="Pepsi" className="w-7 h-7 object-contain" />
+          <div>
+            <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 leading-tight">Pepsi ERP v1.0</p>
+            <p className="text-[9px] font-semibold text-slate-400">Single Source Ledger Active</p>
+          </div>
         </div>
       </div>
     </div>

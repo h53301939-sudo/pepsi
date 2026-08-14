@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
+import PWAInstallButton from '../components/common/PWAInstallButton';
 import { Settings, Save, CheckCircle, ShieldCheck, MessageCircle, QrCode, RefreshCw, PowerOff, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
 
 export default function SettingsPage() {
@@ -291,6 +292,18 @@ export default function SettingsPage() {
             <span>Save Distribution Agency Details</span>
           </button>
         </form>
+      </div>
+
+      {/* 📲 Progressive Web App (PWA) Direct Install Section */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+        <h3 className="font-extrabold text-base text-slate-900 dark:text-white flex items-center space-x-2">
+          <span>📲</span>
+          <span>Mobile & Desktop App Installation (PWA)</span>
+        </h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400">
+          Install the full Pepsi ERP standalone application on your Android phone, tablet or Windows/Mac computer for 1-tap launcher access without browser address bars.
+        </p>
+        <PWAInstallButton variant="settings" />
       </div>
     </div>
   );

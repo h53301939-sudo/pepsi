@@ -2,6 +2,8 @@ import React, { useState } from 'react';
 import { BrowserRouter as Router, Routes, Route, Navigate, NavLink } from 'react-router-dom';
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
+import { PWAProvider } from './context/PWAContext';
+import PWAUpdateToast from './components/common/PWAUpdateToast';
 
 // Layout
 import Navbar from './components/layout/Navbar';
@@ -121,192 +123,195 @@ export default function App() {
   return (
     <ThemeProvider>
       <AuthProvider>
-        <Router>
-          <Routes>
-            {/* Public Login Route */}
-            <Route path="/login" element={<Login />} />
+        <PWAProvider>
+          <Router>
+            <PWAUpdateToast />
+            <Routes>
+              {/* Public Login Route */}
+              <Route path="/login" element={<Login />} />
 
-            {/* Protected App Routes */}
-            <Route
-              path="/dashboard"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <DashboardRedirect />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              {/* Protected App Routes */}
+              <Route
+                path="/dashboard"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <DashboardRedirect />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/pos"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <SalesPosPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/pos"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <SalesPosPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/warehouse-pos"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <DirectWarehousePosPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/warehouse-pos"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <DirectWarehousePosPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/products"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <ProductsPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/products"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <ProductsPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/purchases"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <PurchasesPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/purchases"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <PurchasesPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/warehouse"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <WarehousePage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/warehouse"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <WarehousePage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/vehicles"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <VehiclesPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/vehicles"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <VehiclesPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/loading"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <VehicleLoadingPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/loading"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <VehicleLoadingPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/invoices"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <InvoicesPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/invoices"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <InvoicesPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/customers"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <CustomersPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/customers"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <CustomersPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/returns"
-              element={
-                <ProtectedRoute>
-                  <DashboardLayout>
-                    <ReturnsPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/returns"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <ReturnsPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/ledger"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <LedgerPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/ledger"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <LedgerPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/reports"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <ReportsPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/reports"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <ReportsPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/workers"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <WorkersPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/workers"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <WorkersPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/activity-logs"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <ActivityLogsPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/activity-logs"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <ActivityLogsPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            <Route
-              path="/settings"
-              element={
-                <ProtectedRoute requireAdmin={true}>
-                  <DashboardLayout>
-                    <SettingsPage />
-                  </DashboardLayout>
-                </ProtectedRoute>
-              }
-            />
+              <Route
+                path="/settings"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <SettingsPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
 
-            {/* Fallback */}
-            <Route path="*" element={<Navigate to="/dashboard" replace />} />
-          </Routes>
-        </Router>
+              {/* Fallback */}
+              <Route path="*" element={<Navigate to="/dashboard" replace />} />
+            </Routes>
+          </Router>
+        </PWAProvider>
       </AuthProvider>
     </ThemeProvider>
   );

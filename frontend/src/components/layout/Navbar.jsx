@@ -3,6 +3,7 @@ import { useAuth } from '../../context/AuthContext';
 import { useTheme } from '../../context/ThemeContext';
 import { Sun, Moon, LogOut, Truck, Menu, X } from 'lucide-react';
 import pepsiLogo from '../../assets/pepsi-logo.png';
+import PWAInstallButton from '../common/PWAInstallButton';
 
 export default function Navbar({ onSearchChange, mobileMenuOpen, setMobileMenuOpen }) {
   const { user, logout } = useAuth();
@@ -58,6 +59,9 @@ export default function Navbar({ onSearchChange, mobileMenuOpen, setMobileMenuOp
             <span>Van: {user.assignedVehicle.vehicleNumber || 'Assigned'}</span>
           </div>
         )}
+
+        {/* PWA Install Button (Auto-hides when installed) */}
+        <PWAInstallButton variant="navbar" />
 
         {/* Dark/Light Mode Toggle */}
         <button
