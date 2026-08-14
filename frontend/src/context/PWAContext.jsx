@@ -1,12 +1,17 @@
 import React, { createContext, useContext, useState, useEffect } from 'react';
+import PWAInstallModal from '../components/common/PWAInstallModal';
 
 const PWAContext = createContext({
   isInstallable: false,
   isInstalled: false,
+  isIOS: false,
+  isIOSSafari: true,
+  platform: 'desktop', // 'ios' | 'android' | 'desktop'
   installApp: async () => false,
   updateAvailable: false,
   applyUpdate: () => {},
-  isOnline: true
+  isOnline: true,
+  openInstallGuide: () => {}
 });
 
 export const PWAProvider = ({ children }) => {
@@ -16,9 +21,38 @@ export const PWAProvider = ({ children }) => {
   const [updateAvailable, setUpdateAvailable] = useState(false);
   const [swRegistration, setSwRegistration] = useState(null);
   const [isOnline, setIsOnline] = useState(navigator.onLine);
+  
+  // Platform Detection States
+  const [platform, setPlatform] = useState('desktop'); // 'ios' | 'android' | 'desktop'
+  const [isIOS, setIsIOS] = useState(false);
+  const [isIOSSafari, setIsIOSSafari] = useState(true);
+  const [showGuideModal, setShowGuideModal] = useState(false);
 
   useEffect(() => {
-    // 1. Check if already running in Standalone / PWA Mode
+    // 1. Precise Platform Detection
+    const userAgent = window.navigator.userAgent || '';
+    const isAppleDevice = 
+      /iPad|iPhone|iPod/.test(userAgent) ||
+      (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+    
+    const isAndroidDevice = /Android/i.test(userAgent);
+
+    if (isAppleDevice) {
+      setPlatform('ios');
+      setIsIOS(true);
+      const isWebKit = /WebKit/i.test(userAgent);
+      const isOtherBrowser = /CriOS|FxiOS|EdgiOS|OPiOS|Instagram|FBAN|FBAV|WhatsApp/i.test(userAgent);
+      const isSafariBrowser = isWebKit && !isOtherBrowser && /Safari/i.test(userAgent);
+      setIsIOSSafari(Boolean(isSafariBrowser));
+    } else if (isAndroidDevice) {
+      setPlatform('android');
+      setIsIOS(false);
+    } else {
+      setPlatform('desktop'); // Windows, macOS Desktop, Linux
+      setIsIOS(false);
+    }
+
+    // 2. Check if already running in Standalone / Installed PWA Mode
     const checkInstalled = () => {
       const isStandaloneMode = 
         window.matchMedia('(display-mode: standalone)').matches ||
@@ -34,40 +68,39 @@ export const PWAProvider = ({ children }) => {
     const handleMediaChange = (e) => setIsInstalled(e.matches);
     mediaQuery.addEventListener?.('change', handleMediaChange);
 
-    // 2. Capture Browser `beforeinstallprompt` event (Chrome, Edge, Android browsers)
+    // 3. Capture Browser `beforeinstallprompt` event (Chrome, Edge on Windows/Mac & Android)
     const handleBeforeInstallPrompt = (e) => {
-      e.preventDefault(); // Prevent default automatic mini-infobar
+      e.preventDefault(); // Prevent default mini-infobar
       setDeferredPrompt(e);
       setIsInstallable(true);
-      console.log('✅ [PWA] App is ready for installation prompt');
+      console.log('✅ [PWA] Ready for native install prompt on', platform);
     };
 
-    // 3. Listen for successful install
+    // 4. Listen for successful install
     const handleAppInstalled = () => {
       console.log('🎉 [PWA] App installed successfully');
       setDeferredPrompt(null);
       setIsInstallable(false);
       setIsInstalled(true);
+      setShowGuideModal(false);
     };
 
     window.addEventListener('beforeinstallprompt', handleBeforeInstallPrompt);
     window.addEventListener('appinstalled', handleAppInstalled);
 
-    // 4. Online/Offline Network Status Listeners
+    // 5. Online/Offline Network Status Listeners
     const handleOnline = () => setIsOnline(true);
     const handleOffline = () => setIsOnline(false);
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // 5. Register Service Worker (in production and dev if supported)
+    // 6. Register Service Worker
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
         .register('/sw.js', { scope: '/' })
         .then((registration) => {
           setSwRegistration(registration);
-          console.log('🚀 [PWA] Service Worker registered with scope:', registration.scope);
 
-          // Check if an update is found
           registration.onupdatefound = () => {
             const installingWorker = registration.installing;
             if (installingWorker) {
@@ -81,10 +114,9 @@ export const PWAProvider = ({ children }) => {
           };
         })
         .catch((err) => {
-          console.warn('[PWA] Service Worker registration skipped or failed:', err);
+          console.warn('[PWA] Service Worker registration warning:', err);
         });
 
-      // Reload on controller change
       let refreshing = false;
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
@@ -103,33 +135,29 @@ export const PWAProvider = ({ children }) => {
     };
   }, []);
 
-  // 📲 Trigger Native PWA Installation Prompt
+  // 📲 Smart Installation Trigger
   const installApp = async () => {
-    if (!deferredPrompt) {
-      // Fallback instructions for browsers that don't support beforeinstallprompt (e.g. iOS Safari)
-      const isIOS = /iPad|iPhone|iPod/.test(navigator.userAgent) && !window.MSStream;
-      if (isIOS) {
-        alert("To install this app on your iPhone/iPad:\n1. Tap the 'Share' icon (square with arrow) in Safari.\n2. Scroll down and tap 'Add to Home Screen'.");
+    // If native prompt is ready (Chrome / Edge on Windows Desktop or Android)
+    if (deferredPrompt) {
+      try {
+        deferredPrompt.prompt();
+        const { outcome } = await deferredPrompt.userChoice;
+        console.log(`[PWA] Install prompt outcome: ${outcome}`);
+
+        if (outcome === 'accepted') {
+          setIsInstallable(false);
+          setDeferredPrompt(null);
+          return true;
+        }
         return false;
+      } catch (err) {
+        console.error('[PWA] Error invoking native prompt:', err);
       }
-      return false;
     }
 
-    try {
-      deferredPrompt.prompt();
-      const { outcome } = await deferredPrompt.userChoice;
-      console.log(`[PWA] Install prompt outcome: ${outcome}`);
-
-      if (outcome === 'accepted') {
-        setIsInstallable(false);
-        setDeferredPrompt(null);
-        return true;
-      }
-      return false;
-    } catch (err) {
-      console.error('[PWA] Error invoking install prompt:', err);
-      return false;
-    }
+    // If no native prompt event (e.g. iOS Safari, or Desktop browser where prompt hasn't triggered yet)
+    setShowGuideModal(true);
+    return false;
   };
 
   // 🔄 Apply Update Instantly
@@ -140,18 +168,32 @@ export const PWAProvider = ({ children }) => {
     setUpdateAvailable(false);
   };
 
+  const openInstallGuide = () => setShowGuideModal(true);
+  const closeInstallGuide = () => setShowGuideModal(false);
+
   return (
     <PWAContext.Provider
       value={{
         isInstallable,
         isInstalled,
+        isIOS,
+        isIOSSafari,
+        platform,
         installApp,
         updateAvailable,
         applyUpdate,
-        isOnline
+        isOnline,
+        openInstallGuide
       }}
     >
       {children}
+      {/* Universal Multi-Platform Install Guide Modal */}
+      <PWAInstallModal
+        isOpen={showGuideModal}
+        onClose={closeInstallGuide}
+        platform={platform}
+        isIOSSafari={isIOSSafari}
+      />
     </PWAContext.Provider>
   );
 };
