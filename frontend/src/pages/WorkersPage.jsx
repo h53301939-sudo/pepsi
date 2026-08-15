@@ -3,6 +3,7 @@ import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
 import WorkerProfileModal from '../components/worker/WorkerProfileModal';
+import { useToast } from '../context/ToastContext';
 import { 
   UserCheck, 
   Plus, 
@@ -15,6 +16,7 @@ import {
 } from 'lucide-react';
 
 export default function WorkersPage() {
+  const { toast } = useToast();
   const [workers, setWorkers] = useState([]);
   const [vehicles, setVehicles] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -72,13 +74,15 @@ export default function WorkersPage() {
     try {
       if (editingWorker) {
         await API.put(`/auth/workers/${editingWorker._id}`, formData);
+        toast.success(`Worker "${formData.name}" profile updated! 👷`, 'Worker Updated');
       } else {
         await API.post('/auth/workers', formData);
+        toast.success(`New worker "${formData.name}" registered successfully! 👷`, 'Worker Created');
       }
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save worker');
+      toast.error(err.response?.data?.message || 'Failed to save worker', 'Save Error');
     }
   };
 
@@ -92,9 +96,13 @@ export default function WorkersPage() {
 
     try {
       await API.put(`/auth/workers/${worker._id}`, { active: !isCurrentlyActive });
+      toast.success(
+        isCurrentlyActive ? `${worker.name} has been blocked.` : `${worker.name} has been unblocked and activated!`,
+        'Status Changed'
+      );
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update worker status');
+      toast.error(err.response?.data?.message || 'Failed to update worker status', 'Update Error');
     }
   };
 
@@ -102,9 +110,10 @@ export default function WorkersPage() {
     if (window.confirm('Remove worker staff account?')) {
       try {
         await API.delete(`/auth/workers/${id}`);
+        toast.success('Worker account deleted.', 'Worker Removed');
         fetchData();
       } catch (err) {
-        alert('Failed to delete worker');
+        toast.error('Failed to delete worker', 'Delete Error');
       }
     }
   };

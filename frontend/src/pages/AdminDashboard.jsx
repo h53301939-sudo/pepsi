@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import { useNavigate } from 'react-router-dom';
+import { useAuth } from '../context/AuthContext';
 import API from '../services/api';
 import StatCard from '../components/common/StatCard';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import TargetModal from '../components/target/TargetModal';
+import TargetMotivationModal from '../components/common/TargetMotivationModal';
 import {
   Warehouse,
   IndianRupee,
@@ -22,7 +24,9 @@ import {
   Edit3,
   PackagePlus,
   ChevronDown,
-  ChevronUp
+  ChevronUp,
+  Zap,
+  Sparkles
 } from 'lucide-react';
 
 import { Chart as ChartJS, CategoryScale, LinearScale, PointElement, LineElement, BarElement, Title, Tooltip, Legend, ArcElement } from 'chart.js';
@@ -32,10 +36,12 @@ ChartJS.register(CategoryScale, LinearScale, PointElement, LineElement, BarEleme
 
 export default function AdminDashboard() {
   const navigate = useNavigate();
+  const { user } = useAuth();
   const [data, setData] = useState(null);
   const [analytics, setAnalytics] = useState(null);
   const [targetData, setTargetData] = useState(null);
   const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+  const [showMotivationModal, setShowMotivationModal] = useState(false);
   const [showLowStockDetails, setShowLowStockDetails] = useState(false);
   const [loading, setLoading] = useState(true);
 
@@ -43,6 +49,16 @@ export default function AdminDashboard() {
     try {
       const res = await API.get('/targets/current');
       setTargetData(res.data);
+
+      if (res.data) {
+        // Auto-trigger motivational popup on each fresh login
+        const shouldShowOnLogin = sessionStorage.getItem('pepsi_show_target_motivation_on_login');
+        if (shouldShowOnLogin === 'true' || !sessionStorage.getItem(`pepsi_admin_session_${user?._id || 'admin'}`)) {
+          setShowMotivationModal(true);
+          sessionStorage.removeItem('pepsi_show_target_motivation_on_login');
+          sessionStorage.setItem(`pepsi_admin_session_${user?._id || 'admin'}`, 'true');
+        }
+      }
     } catch (err) {
       console.error('Error fetching sales target:', err);
     }
@@ -262,6 +278,15 @@ export default function AdminDashboard() {
               )}
 
               <button
+                onClick={() => setShowMotivationModal(true)}
+                className="flex items-center space-x-1.5 px-3 py-1.5 bg-gradient-to-r from-amber-400 to-yellow-500 hover:from-amber-500 hover:to-yellow-600 text-slate-950 text-xs font-black rounded-xl shadow-sm transition"
+                title="View Goal Motivation & Leadership Status"
+              >
+                <Sparkles className="w-3.5 h-3.5" />
+                <span>Pacing Status</span>
+              </button>
+
+              <button
                 onClick={() => setIsTargetModalOpen(true)}
                 className="flex items-center space-x-1.5 px-3 py-1.5 bg-slate-100 hover:bg-slate-200 dark:bg-slate-700 dark:hover:bg-slate-600 text-slate-800 dark:text-white text-xs font-bold rounded-xl transition"
               >
@@ -358,6 +383,17 @@ export default function AdminDashboard() {
         currentTarget={targetInfo}
         onTargetSaved={fetchTargetData}
       />
+
+      {/* Target Motivation Modal */}
+      {showMotivationModal && targetData && (
+        <TargetMotivationModal
+          isOpen={showMotivationModal}
+          onClose={() => setShowMotivationModal(false)}
+          targetData={targetData}
+          userName={user?.name || 'Administrator'}
+          role="admin"
+        />
+      )}
 
       {/* Charts Section */}
       <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">

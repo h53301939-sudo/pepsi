@@ -3,6 +3,7 @@ import { BrowserRouter as Router, Routes, Route, Navigate, NavLink } from 'react
 import { AuthProvider, useAuth } from './context/AuthContext';
 import { ThemeProvider } from './context/ThemeContext';
 import { PWAProvider } from './context/PWAContext';
+import { ToastProvider } from './context/ToastContext';
 import PWAUpdateToast from './components/common/PWAUpdateToast';
 
 // Layout
@@ -124,9 +125,10 @@ export default function App() {
     <ThemeProvider>
       <AuthProvider>
         <PWAProvider>
-          <Router>
-            <PWAUpdateToast />
-            <Routes>
+          <ToastProvider>
+            <Router>
+              <PWAUpdateToast />
+              <Routes>
               {/* Public Login Route */}
               <Route path="/login" element={<Login />} />
 
@@ -311,6 +313,7 @@ export default function App() {
               <Route path="*" element={<Navigate to="/dashboard" replace />} />
             </Routes>
           </Router>
+          </ToastProvider>
         </PWAProvider>
       </AuthProvider>
     </ThemeProvider>

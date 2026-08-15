@@ -1,9 +1,11 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
+import { useToast } from '../context/ToastContext';
 import { Tag, Save, CheckCircle, AlertTriangle, Package } from 'lucide-react';
 
 export default function VanSellingPricesPage() {
+  const { toast } = useToast();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [priceInputs, setPriceInputs] = useState({});
@@ -42,7 +44,7 @@ export default function VanSellingPricesPage() {
   const handleSavePrice = async (prod) => {
     const newPrice = Number(priceInputs[prod._id]);
     if (!newPrice || newPrice <= 0) {
-      alert('Please enter a valid selling price greater than 0');
+      toast.warning('Please enter a valid selling price greater than 0', 'Invalid Price');
       return;
     }
 
@@ -52,11 +54,10 @@ export default function VanSellingPricesPage() {
         ...prod,
         sellingPrice: newPrice
       });
-      setSuccessMessage(`Selling price for ${prod.name} saved as ₹${newPrice}/Case`);
-      setTimeout(() => setSuccessMessage(''), 3000);
+      toast.success(`Selling price for "${prod.name}" updated to ₹${newPrice}/Case! 💰`, 'Price Updated');
       fetchProducts();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to update selling price');
+      toast.error(err.response?.data?.message || 'Failed to update selling price', 'Update Error');
     } finally {
       setSavingId(null);
     }

@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
+import { useToast } from '../context/ToastContext';
 import { Plus, Search, Edit2, Trash2, Package, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
 
 export default function ProductsPage() {
+  const { toast } = useToast();
   const [products, setProducts] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -112,13 +114,17 @@ export default function ProductsPage() {
 
       if (editingProduct) {
         await API.put(`/products/${editingProduct._id}`, payload);
+        toast.success(`Item "${formData.name}" updated successfully! ✏️`, 'Item Updated');
       } else {
         await API.post('/products', payload);
+        toast.success(`Item "${formData.name}" added to warehouse catalog! 📦`, 'Item Added');
       }
       setIsModalOpen(false);
       fetchProducts();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Failed to save product in warehouse');
+      const msg = err.response?.data?.message || 'Failed to save product in warehouse';
+      setFormError(msg);
+      toast.error(msg, 'Save Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -128,9 +134,10 @@ export default function ProductsPage() {
     if (window.confirm('Are you sure you want to delete this product?')) {
       try {
         await API.delete(`/products/${id}`);
+        toast.success('Product removed from catalog.', 'Item Deleted');
         fetchProducts();
       } catch (err) {
-        alert(err.response?.data?.message || 'Failed to delete product');
+        toast.error(err.response?.data?.message || 'Failed to delete product', 'Delete Error');
       }
     }
   };
@@ -139,9 +146,10 @@ export default function ProductsPage() {
     if (window.confirm('⚠️ WARNING: Delete ALL items from warehouse catalog to start completely clean?')) {
       try {
         await API.delete('/products/clear-all');
+        toast.success('All items cleared from catalog.', 'Catalog Cleared');
         fetchProducts();
       } catch (err) {
-        alert(err.response?.data?.message || 'Failed to clear products');
+        toast.error(err.response?.data?.message || 'Failed to clear products', 'Error');
       }
     }
   };

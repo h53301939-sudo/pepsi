@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import PWAInstallButton from '../components/common/PWAInstallButton';
+import { useToast } from '../context/ToastContext';
 import { Settings, Save, CheckCircle, ShieldCheck, MessageCircle, QrCode, RefreshCw, PowerOff, CheckCircle2, Phone, AlertCircle } from 'lucide-react';
 
 export default function SettingsPage() {
+  const { toast } = useToast();
   const [settings, setSettings] = useState(null);
   const [loading, setLoading] = useState(true);
   const [savedSuccess, setSavedSuccess] = useState(false);
@@ -71,8 +73,9 @@ export default function SettingsPage() {
     try {
       await API.post('/whatsapp/disconnect');
       setWaStatus({ status: 'disconnected', qrCode: null, connectedNumber: null, isReady: false });
+      toast.success('WhatsApp disconnected successfully', 'WhatsApp Status');
     } catch (err) {
-      alert('Failed to disconnect WhatsApp');
+      toast.error('Failed to disconnect WhatsApp', 'Error');
     } finally {
       setWaLoading(false);
     }
@@ -84,9 +87,10 @@ export default function SettingsPage() {
       const res = await API.put('/settings', settings);
       setSettings(res.data);
       setSavedSuccess(true);
+      toast.success('Agency settings & invoice header updated successfully! ⚙️', 'Settings Saved');
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err) {
-      alert('Failed to save settings');
+      toast.error('Failed to save settings', 'Error');
     }
   };
 

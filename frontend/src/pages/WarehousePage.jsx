@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
+import { useToast } from '../context/ToastContext';
 import { Warehouse, AlertTriangle, ArrowRightLeft, ShieldAlert, Plus, Package } from 'lucide-react';
 
 export default function WarehousePage() {
+  const { toast } = useToast();
   const [stockData, setStockData] = useState(null);
   const [loading, setLoading] = useState(true);
   const [isAdjustModalOpen, setIsAdjustModalOpen] = useState(false);
@@ -52,10 +54,11 @@ export default function WarehousePage() {
         adjustmentQty: Number(adjustQty),
         remarks
       });
+      toast.success(`Warehouse stock adjusted for ${selectedProduct.name}! 📦`, 'Stock Adjusted');
       setIsAdjustModalOpen(false);
       fetchWarehouseStock();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to adjust stock');
+      toast.error(err.response?.data?.message || 'Failed to adjust stock', 'Error');
     }
   };
 
@@ -63,10 +66,11 @@ export default function WarehousePage() {
     e.preventDefault();
     try {
       await API.post('/damages', damageForm);
+      toast.success('Damaged/broken stock logged & deducted successfully! ⚠️', 'Damage Recorded');
       setIsDamageModalOpen(false);
       fetchWarehouseStock();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to log damage');
+      toast.error(err.response?.data?.message || 'Failed to log damage', 'Error');
     }
   };
 

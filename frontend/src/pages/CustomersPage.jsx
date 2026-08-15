@@ -4,6 +4,8 @@ import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import CustomerDetailsModal from '../components/customer/CustomerDetailsModal';
+import CustomerAvatar from '../components/common/CustomerAvatar';
+import { useToast } from '../context/ToastContext';
 import {
   Users,
   Plus,
@@ -24,6 +26,7 @@ import {
 } from 'lucide-react';
 
 export default function CustomersPage() {
+  const { toast } = useToast();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
   const [search, setSearch] = useState('');
@@ -98,10 +101,11 @@ export default function CustomersPage() {
         amount: Number(paymentAmount),
         paymentMethod
       });
+      toast.success(`Payment of ₹${Number(paymentAmount).toLocaleString('en-IN')} recorded for ${selectedCust.shopName}! 💰`, 'Payment Recorded');
       setIsPaymentModalOpen(false);
       fetchCustomers();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to record payment');
+      toast.error(err.response?.data?.message || 'Failed to record payment', 'Payment Failed');
     } finally {
       setIsPaymentSubmitting(false);
     }
@@ -116,22 +120,22 @@ export default function CustomersPage() {
       ownerName: '',
       phone: '',
       address: '',
-      creditLimit: '5000',
-      discountPercentage: '0'
+      creditLimit: 5000,
+      discountPercentage: 0
     });
     setIsCustModalOpen(true);
   };
 
-  const handleOpenEditCustomer = (cust) => {
-    setEditingCust(cust);
+  const handleOpenEditCustomer = (c) => {
+    setEditingCust(c);
     setFormError('');
     setCustForm({
-      shopName: cust.shopName,
-      ownerName: cust.ownerName,
-      phone: cust.phone,
-      address: cust.address || '',
-      creditLimit: cust.creditLimit || '5000',
-      discountPercentage: cust.discountPercentage || '0'
+      shopName: c.shopName || '',
+      ownerName: c.ownerName || '',
+      phone: c.phone || '',
+      address: c.address || '',
+      creditLimit: c.creditLimit || 5000,
+      discountPercentage: c.discountPercentage || 0
     });
     setIsCustModalOpen(true);
   };
@@ -156,14 +160,18 @@ export default function CustomersPage() {
 
       if (editingCust) {
         await API.put(`/customers/${editingCust._id}`, payload);
+        toast.success(`Customer "${custForm.shopName}" profile updated! 👤`, 'Customer Updated');
       } else {
         await API.post('/customers', payload);
+        toast.success(`Customer "${custForm.shopName}" registered successfully! 👤`, 'Customer Added');
       }
 
       setIsCustModalOpen(false);
       fetchCustomers();
     } catch (err) {
-      setFormError(err.response?.data?.message || 'Failed to save customer');
+      const msg = err.response?.data?.message || 'Failed to save customer';
+      setFormError(msg);
+      toast.error(msg, 'Save Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -173,9 +181,10 @@ export default function CustomersPage() {
     if (window.confirm('Are you sure you want to delete this customer shop?')) {
       try {
         await API.delete(`/customers/${id}`);
+        toast.success('Customer shop deleted successfully.', 'Customer Removed');
         fetchCustomers();
       } catch (err) {
-        alert(err.response?.data?.message || 'Failed to delete customer');
+        toast.error(err.response?.data?.message || 'Failed to delete customer', 'Delete Error');
       }
     }
   };
@@ -225,23 +234,26 @@ export default function CustomersPage() {
           >
             <div>
               {/* Header with Title & Action Buttons */}
-              <div className="flex items-start justify-between gap-2">
+              <div className="flex items-start justify-between gap-3">
                 <div 
                   onClick={() => handleOpenCustomerDetails(c)}
-                  className="cursor-pointer hover:text-[#0051A5] transition flex-1"
+                  className="cursor-pointer hover:text-[#0051A5] transition flex items-center space-x-3 flex-1 min-w-0"
                 >
-                  <div className="flex items-center space-x-2">
-                    <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-[#0051A5] transition">
-                      {c.shopName}
-                    </h3>
-                    {c.discountPercentage > 0 && (
-                      <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold text-[10px] rounded-full flex items-center space-x-1">
-                        <Tag className="w-3 h-3" />
-                        <span>{c.discountPercentage}% OFF</span>
-                      </span>
-                    )}
+                  <CustomerAvatar name={c.shopName} size="md" />
+                  <div className="min-w-0 flex-1">
+                    <div className="flex items-center space-x-2">
+                      <h3 className="font-extrabold text-base text-slate-900 dark:text-white group-hover:text-[#0051A5] transition truncate">
+                        {c.shopName}
+                      </h3>
+                      {c.discountPercentage > 0 && (
+                        <span className="px-2 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold text-[10px] rounded-full flex items-center space-x-1 shrink-0">
+                          <Tag className="w-3 h-3" />
+                          <span>{c.discountPercentage}% OFF</span>
+                        </span>
+                      )}
+                    </div>
+                    <p className="text-xs text-slate-500 dark:text-slate-400 font-medium truncate">{c.ownerName} ({c.phone})</p>
                   </div>
-                  <p className="text-xs text-slate-500 font-medium">{c.ownerName} ({c.phone})</p>
                 </div>
 
                 <div className="flex space-x-1 flex-shrink-0">

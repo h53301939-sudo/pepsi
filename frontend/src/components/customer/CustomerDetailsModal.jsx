@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import API from '../../services/api';
 import Modal from '../common/Modal';
+import CustomerAvatar from '../common/CustomerAvatar';
 import {
   Store,
   Phone,
@@ -71,30 +72,33 @@ export default function CustomerDetailsModal({ isOpen, onClose, customerId, init
         
         {/* 🏪 TOP CUSTOMER SHOP PROFILE CARD */}
         <div className="bg-slate-50 dark:bg-slate-700/50 p-5 rounded-2xl border border-slate-200 dark:border-slate-600 flex flex-col sm:flex-row justify-between items-start sm:items-center gap-4">
-          <div className="space-y-1">
-            <div className="flex items-center space-x-2">
-              <h2 className="text-xl font-black text-slate-900 dark:text-white">
-                {customer.shopName || 'Customer Shop'}
-              </h2>
-              {customer.discountPercentage > 0 && (
-                <span className="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold text-[11px] rounded-full flex items-center space-x-1">
-                  <Tag className="w-3 h-3" />
-                  <span>{customer.discountPercentage}% Special Rate</span>
+          <div className="flex items-center space-x-4">
+            <CustomerAvatar name={customer.shopName} size="lg" />
+            <div className="space-y-1">
+              <div className="flex items-center space-x-2">
+                <h2 className="text-xl font-black text-slate-900 dark:text-white">
+                  {customer.shopName || 'Customer Shop'}
+                </h2>
+                {customer.discountPercentage > 0 && (
+                  <span className="px-2.5 py-0.5 bg-emerald-100 dark:bg-emerald-950 text-emerald-700 dark:text-emerald-300 font-extrabold text-[11px] rounded-full flex items-center space-x-1">
+                    <Tag className="w-3 h-3" />
+                    <span>{customer.discountPercentage}% Special Rate</span>
+                  </span>
+                )}
+              </div>
+              <p className="text-xs font-semibold text-slate-500 dark:text-slate-300 flex items-center space-x-3">
+                <span>Owner: <strong>{customer.ownerName || 'Retailer'}</strong></span>
+                <span>•</span>
+                <span className="flex items-center space-x-1">
+                  <Phone className="w-3.5 h-3.5 text-pepsi-blue" />
+                  <span>{customer.phone || 'No Phone'}</span>
                 </span>
-              )}
+              </p>
+              <p className="text-xs text-slate-400 flex items-center space-x-1 pt-0.5">
+                <MapPin className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
+                <span>{customer.address || 'Local Route Retailer'}</span>
+              </p>
             </div>
-            <p className="text-xs font-semibold text-slate-500 dark:text-slate-300 flex items-center space-x-3">
-              <span>Owner: <strong>{customer.ownerName || 'Retailer'}</strong></span>
-              <span>•</span>
-              <span className="flex items-center space-x-1">
-                <Phone className="w-3.5 h-3.5 text-pepsi-blue" />
-                <span>{customer.phone || 'No Phone'}</span>
-              </span>
-            </p>
-            <p className="text-xs text-slate-400 flex items-center space-x-1 pt-0.5">
-              <MapPin className="w-3.5 h-3.5 text-red-500 flex-shrink-0" />
-              <span>{customer.address || 'Local Route Retailer'}</span>
-            </p>
           </div>
 
           {/* Direct WhatsApp Quick Chat */}

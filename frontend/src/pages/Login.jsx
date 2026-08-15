@@ -65,10 +65,13 @@ export default function Login() {
 
     try {
       const user = await login(email, password);
+      // Set flag to show target motivation popup on each login
+      sessionStorage.setItem('pepsi_show_target_motivation_on_login', 'true');
+
       if (user.role === 'admin') {
         navigate('/dashboard');
       } else {
-        navigate('/pos');
+        navigate('/dashboard');
       }
     } catch (err) {
       setError(err.response?.data?.message || 'Invalid username or password');

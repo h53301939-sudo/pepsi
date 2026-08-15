@@ -1,15 +1,21 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
+import SaleConfirmModal from '../components/pos/SaleConfirmModal';
+import CustomerAvatar from '../components/common/CustomerAvatar';
 import Modal from '../components/common/Modal';
+import { playCartBeep } from '../utils/audio';
 import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Tag, Truck } from 'lucide-react';
 
 export default function SalesPosPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [vehicles, setVehicles] = useState([]);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
     return localStorage.getItem('pepsi_pos_vehicle') || '';
   });
@@ -158,6 +164,8 @@ export default function SalesPosPage() {
         maxVanStock: item.quantity
       }]);
     }
+    // 🎵 Play scanner beep on add to cart
+    playCartBeep();
   };
 
   const updateCartQty = (prodId, newQty) => {
@@ -170,6 +178,9 @@ export default function SalesPosPage() {
       alert(`Max available stock on van is ${item.maxVanStock} Cases`);
       return;
     }
+    if (item && newQty > item.quantity) {
+      playCartBeep();
+    }
     setCart(cart.map(c => c.product._id === prodId ? { ...c, quantity: newQty } : c));
   };
 
@@ -181,8 +192,10 @@ export default function SalesPosPage() {
   };
 
   let subTotal = 0;
+  let totalCases = 0;
   cart.forEach(item => {
     subTotal += item.quantity * item.unitPrice;
+    totalCases += (Number(item.quantity) || 0);
   });
 
   const selectedCustomerObj = customers.find(c => c._id === selectedCustomerId);
@@ -205,7 +218,7 @@ export default function SalesPosPage() {
     selectedCustomerObj?.creditLimit > 0 && 
     ((selectedCustomerObj.outstandingBalance || 0) + prospectiveDue) > selectedCustomerObj.creditLimit;
 
-  const handleProcessSale = async () => {
+  const handleProcessSale = () => {
     if (isSubmitting) return; // Prevent double trigger
     if (!selectedVehicleId) return alert('Select delivery van');
     if (!selectedCustomerId) return alert('Select customer');
@@ -218,6 +231,12 @@ export default function SalesPosPage() {
       return;
     }
 
+    // Open confirmation modal to prevent accidental clicks
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleConfirmAndExecuteSale = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const salePayload = {
@@ -235,6 +254,7 @@ export default function SalesPosPage() {
 
       const res = await API.post('/sales', salePayload);
       setGeneratedSale(res.data);
+      setIsConfirmModalOpen(false);
       setIsSuccessModalOpen(true);
       
       // Clear persistent cart after successful sale
@@ -244,7 +264,7 @@ export default function SalesPosPage() {
       fetchVanStock(selectedVehicleId);
       fetchData(); // Refresh customers list & balances
     } catch (err) {
-      alert(err.response?.data?.message || 'POS Sale failed');
+      toast.error(err.response?.data?.message || 'POS Sale failed', 'Sale Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -260,8 +280,9 @@ export default function SalesPosPage() {
       setSelectedCustomerId(res.data._id);
       setIsNewCustModalOpen(false);
       setNewCustomer({ shopName: '', ownerName: '', phone: '', address: '' });
+      toast.success(`Customer "${res.data?.shopName}" registered successfully! 👤`, 'Customer Added');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to add customer');
+      toast.error(err.response?.data?.message || 'Failed to add customer', 'Error');
     } finally {
       setIsCustSubmitting(false);
     }
@@ -322,6 +343,9 @@ export default function SalesPosPage() {
         {/* Customer Selection Bar */}
         <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
           <div className="w-full sm:w-auto flex-1 flex items-center space-x-2">
+            {selectedCustomerObj && (
+              <CustomerAvatar name={selectedCustomerObj.shopName} size="sm" />
+            )}
             <div className="flex-1">
               <select
                 value={selectedCustomerId}
@@ -627,6 +651,18 @@ export default function SalesPosPage() {
           </button>
         </div>
       )}
+
+      {/* ⚠️ SALE CONFIRMATION MODAL (PREVENT ACCIDENTAL CLICKS) */}
+      <SaleConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={handleConfirmAndExecuteSale}
+        customerName={selectedCustomerObj?.shopName || 'Selected Customer'}
+        totalAmount={netTotal}
+        totalCases={totalCases}
+        paymentMethod={paymentMethod}
+        isSubmitting={isSubmitting}
+      />
 
       {/* 🌟 1. SALE COMPLETED SUCCESS MODAL (MATCHING IMAGE EXACTLY) */}
       <SaleSuccessModal

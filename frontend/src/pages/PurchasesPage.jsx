@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
+import { useToast } from '../context/ToastContext';
 import { ArrowRightLeft, Plus, Trash2, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function PurchasesPage() {
+  const { toast } = useToast();
   const [purchases, setPurchases] = useState([]);
   const [suppliers, setSuppliers] = useState([]);
   const [products, setProducts] = useState([]);
@@ -71,8 +73,9 @@ export default function PurchasesPage() {
       });
       setSuppliers([res.data]);
       setSupplierId(res.data._id);
+      toast.success('Default supplier configured successfully! 🏢', 'Supplier Ready');
     } catch (err) {
-      alert('Failed to add supplier');
+      toast.error('Failed to add supplier', 'Error');
     }
   };
 
@@ -80,7 +83,7 @@ export default function PurchasesPage() {
     e.preventDefault();
     if (isSubmitting) return; // LOCK AGAINST DOUBLE-CLICKING
     if (!supplierId) {
-      alert('Please select or add a supplier first');
+      toast.warning('Please select or add a supplier first', 'Supplier Required');
       return;
     }
     setIsSubmitting(true);
@@ -94,10 +97,11 @@ export default function PurchasesPage() {
           purchasePrice: Number(item.purchasePrice)
         }))
       });
+      toast.success('Purchase bill saved & stock added to warehouse! 📥', 'Purchase Recorded');
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to record purchase');
+      toast.error(err.response?.data?.message || 'Failed to record purchase', 'Purchase Error');
     } finally {
       setIsSubmitting(false);
     }

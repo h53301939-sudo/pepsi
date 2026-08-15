@@ -2,9 +2,11 @@ import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
+import { useToast } from '../context/ToastContext';
 import { Truck, Plus, User, CheckCircle, Package, Edit2, Trash2 } from 'lucide-react';
 
 export default function VehiclesPage() {
+  const { toast } = useToast();
   const [vehicles, setVehicles] = useState([]);
   const [workers, setWorkers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -70,13 +72,15 @@ export default function VehiclesPage() {
     try {
       if (editingVehicle) {
         await API.put(`/vehicles/${editingVehicle._id}`, formData);
+        toast.success(`Vehicle "${formData.vehicleNumber}" details updated! 🚚`, 'Vehicle Updated');
       } else {
         await API.post('/vehicles', formData);
+        toast.success(`Vehicle "${formData.vehicleNumber}" added to fleet! 🚚`, 'Vehicle Registered');
       }
       setIsModalOpen(false);
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to save vehicle');
+      toast.error(err.response?.data?.message || 'Failed to save vehicle', 'Save Error');
     }
   };
 
@@ -84,9 +88,10 @@ export default function VehiclesPage() {
     if (window.confirm('Are you sure you want to remove this vehicle from fleet?')) {
       try {
         await API.delete(`/vehicles/${id}`);
+        toast.success('Vehicle removed from fleet.', 'Vehicle Deleted');
         fetchData();
       } catch (err) {
-        alert(err.response?.data?.message || 'Failed to delete vehicle');
+        toast.error(err.response?.data?.message || 'Failed to delete vehicle', 'Delete Error');
       }
     }
   };

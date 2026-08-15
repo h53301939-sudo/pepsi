@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import { Warehouse, CheckCircle, Plus, Trash2, Loader2, Truck } from 'lucide-react';
 
 export default function VehicleLoadingPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [vehicles, setVehicles] = useState([]);
   const [products, setProducts] = useState([]);
   const [loadingHistory, setLoadingHistory] = useState([]);
@@ -84,12 +86,12 @@ export default function VehicleLoadingPage() {
         remarks
       });
 
-      alert(res.data?.message || 'Cases loaded successfully onto Van!');
+      toast.success(res.data?.message || 'Cases loaded successfully onto Van! 🚚', 'Van Loaded');
       setLoadItems([{ product: products[0]?._id || '', cases: '' }]);
       setRemarks('');
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to load stock');
+      toast.error(err.response?.data?.message || 'Failed to load stock', 'Loading Failed');
     } finally {
       setIsSubmitting(false);
     }

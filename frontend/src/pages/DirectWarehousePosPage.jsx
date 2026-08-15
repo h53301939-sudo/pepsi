@@ -1,16 +1,22 @@
 import React, { useState, useEffect } from 'react';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
+import SaleConfirmModal from '../components/pos/SaleConfirmModal';
+import CustomerAvatar from '../components/common/CustomerAvatar';
 import Modal from '../components/common/Modal';
+import { playCartBeep } from '../utils/audio';
 import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Store, Tag } from 'lucide-react';
 
 export default function DirectWarehousePosPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [products, setProducts] = useState([]);
   const [customers, setCustomers] = useState([]);
+  const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
   const [selectedCustomerId, setSelectedCustomerId] = useState(() => {
     return localStorage.getItem('pepsi_direct_pos_customer') || '';
   });
@@ -101,6 +107,8 @@ export default function DirectWarehousePosPage() {
         maxStock
       }]);
     }
+    // 🎵 Play scanner beep on add to cart
+    playCartBeep();
   };
 
   const updateCartQty = (prodId, newQty) => {
@@ -113,6 +121,9 @@ export default function DirectWarehousePosPage() {
       alert(`Max available warehouse main stock is ${item.maxStock} Cases`);
       return;
     }
+    if (item && newQty > item.quantity) {
+      playCartBeep();
+    }
     setCart(cart.map(c => c.product._id === prodId ? { ...c, quantity: newQty } : c));
   };
 
@@ -124,8 +135,10 @@ export default function DirectWarehousePosPage() {
   };
 
   let subTotal = 0;
+  let totalCases = 0;
   cart.forEach(item => {
     subTotal += item.quantity * item.unitPrice;
+    totalCases += (Number(item.quantity) || 0);
   });
 
   const selectedCustomerObj = customers.find(c => c._id === selectedCustomerId);
@@ -148,7 +161,7 @@ export default function DirectWarehousePosPage() {
     selectedCustomerObj?.creditLimit > 0 && 
     ((selectedCustomerObj.outstandingBalance || 0) + prospectiveDue) > selectedCustomerObj.creditLimit;
 
-  const handleProcessSale = async () => {
+  const handleProcessSale = () => {
     if (isSubmitting) return;
     if (!selectedCustomerId) return alert('Select customer');
     if (cart.length === 0) return alert('Cart is empty');
@@ -160,6 +173,12 @@ export default function DirectWarehousePosPage() {
       return;
     }
 
+    // Open confirmation modal to prevent accidental clicks
+    setIsConfirmModalOpen(true);
+  };
+
+  const handleConfirmAndExecuteSale = async () => {
+    if (isSubmitting) return;
     setIsSubmitting(true);
     try {
       const salePayload = {
@@ -177,6 +196,7 @@ export default function DirectWarehousePosPage() {
 
       const res = await API.post('/sales', salePayload);
       setGeneratedSale(res.data);
+      setIsConfirmModalOpen(false);
       setIsSuccessModalOpen(true);
       
       setCart([]);
@@ -184,7 +204,7 @@ export default function DirectWarehousePosPage() {
       localStorage.removeItem('pepsi_direct_pos_cart');
       fetchData();
     } catch (err) {
-      alert(err.response?.data?.message || 'Direct Warehouse POS Sale failed');
+      toast.error(err.response?.data?.message || 'Direct Warehouse POS Sale failed', 'Sale Error');
     } finally {
       setIsSubmitting(false);
     }
@@ -200,8 +220,9 @@ export default function DirectWarehousePosPage() {
       setSelectedCustomerId(res.data._id);
       setIsNewCustModalOpen(false);
       setNewCustomer({ shopName: '', ownerName: '', phone: '', address: '' });
+      toast.success(`Customer "${res.data?.shopName}" registered successfully! 👤`, 'Customer Added');
     } catch (err) {
-      alert(err.response?.data?.message || 'Failed to add customer');
+      toast.error(err.response?.data?.message || 'Failed to add customer', 'Error');
     } finally {
       setIsCustSubmitting(false);
     }
@@ -246,18 +267,23 @@ export default function DirectWarehousePosPage() {
             <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
               Select Customer Shop
             </label>
-            <select
-              value={selectedCustomerId}
-              onChange={(e) => setSelectedCustomerId(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs focus:ring-2 focus:ring-pepsi-blue"
-            >
-              {customers.map((c) => (
-                <option key={c._id} value={c._id}>
-                  {c.shopName} ({c.ownerName}) - Limit: ₹{c.creditLimit?.toLocaleString()} | Bal: ₹{c.outstandingBalance?.toLocaleString()}
-                  {c.discountPercentage > 0 ? ` [${c.discountPercentage}% OFF]` : ''}
-                </option>
-              ))}
-            </select>
+            <div className="flex items-center space-x-2">
+              {selectedCustomerObj && (
+                <CustomerAvatar name={selectedCustomerObj.shopName} size="sm" />
+              )}
+              <select
+                value={selectedCustomerId}
+                onChange={(e) => setSelectedCustomerId(e.target.value)}
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs focus:ring-2 focus:ring-pepsi-blue"
+              >
+                {customers.map((c) => (
+                  <option key={c._id} value={c._id}>
+                    {c.shopName} ({c.ownerName}) - Limit: ₹{c.creditLimit?.toLocaleString()} | Bal: ₹{c.outstandingBalance?.toLocaleString()}
+                    {c.discountPercentage > 0 ? ` [${c.discountPercentage}% OFF]` : ''}
+                  </option>
+                ))}
+              </select>
+            </div>
           </div>
 
           {selectedCustomerObj && (
@@ -540,6 +566,18 @@ export default function DirectWarehousePosPage() {
           </button>
         </div>
       )}
+
+      {/* ⚠️ SALE CONFIRMATION MODAL (PREVENT ACCIDENTAL CLICKS) */}
+      <SaleConfirmModal
+        isOpen={isConfirmModalOpen}
+        onClose={() => setIsConfirmModalOpen(false)}
+        onConfirm={handleConfirmAndExecuteSale}
+        customerName={selectedCustomerObj?.shopName || 'Selected Customer'}
+        totalAmount={netTotal}
+        totalCases={totalCases}
+        paymentMethod={paymentMethod}
+        isSubmitting={isSubmitting}
+      />
 
       {/* 🌟 1. SALE COMPLETED SUCCESS MODAL (MATCHING IMAGE EXACTLY) */}
       <SaleSuccessModal

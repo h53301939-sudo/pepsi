@@ -1,11 +1,13 @@
 import React, { useState, useEffect } from 'react';
 import API from '../services/api';
 import { useAuth } from '../context/AuthContext';
+import { useToast } from '../context/ToastContext';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import { CornerUpLeft, CheckCircle, Truck, Package, AlertCircle, Loader2 } from 'lucide-react';
 
 export default function ReturnsPage() {
   const { user } = useAuth();
+  const { toast } = useToast();
   const [vehicles, setVehicles] = useState([]);
   const [selectedVehicle, setSelectedVehicle] = useState('');
   const [vanStocks, setVanStocks] = useState([]);
@@ -90,10 +92,13 @@ export default function ReturnsPage() {
         vehicleId: selectedVehicle,
         items
       });
-      alert('End of day stock cases returned to warehouse successfully!');
+      toast.success('End of day stock cases returned to warehouse successfully! 📦', 'Returns Completed');
+      setReturnItems({});
       fetchData();
     } catch (err) {
-      setErrorMessage(err.response?.data?.message || 'Failed to process return');
+      const msg = err.response?.data?.message || 'Failed to process return';
+      setErrorMessage(msg);
+      toast.error(msg, 'Return Failed');
     } finally {
       setIsSubmitting(false);
     }

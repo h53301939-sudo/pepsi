@@ -1,6 +1,7 @@
 import React, { useState, useEffect } from 'react';
 import Modal from '../common/Modal';
 import InvoiceModal from '../invoice/InvoiceModal';
+import TargetModal from '../target/TargetModal';
 import API from '../../services/api';
 import { 
   TrendingUp, 
@@ -19,7 +20,11 @@ import {
   FileText,
   Search,
   Calendar,
-  Clock
+  Clock,
+  Target as TargetIcon,
+  Edit3,
+  Flame,
+  Sparkles
 } from 'lucide-react';
 
 export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorkerUpdated }) {
@@ -33,18 +38,30 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
   const [invoiceSearch, setInvoiceSearch] = useState('');
   const [selectedInvoiceForModal, setSelectedInvoiceForModal] = useState(null);
 
+  // Worker Monthly Target states
+  const [targetData, setTargetData] = useState(null);
+  const [isTargetModalOpen, setIsTargetModalOpen] = useState(false);
+
   const fetchProfile = async () => {
     if (!workerId) return;
     setLoading(true);
     setError('');
 
     try {
-      // Fetch active sales, workers & products endpoints
-      const [salesRes, workersRes, productsRes] = await Promise.all([
-        API.get('/sales'),
-        API.get('/auth/workers'),
-        API.get('/products')
+      // Fetch active sales, workers, products & target endpoints
+      const [salesRes, workersRes, productsRes, targetRes] = await Promise.all([
+        API.get('/sales').catch(() => ({ data: [] })),
+        API.get('/auth/workers').catch(() => ({ data: [] })),
+        API.get('/products').catch(() => ({ data: [] })),
+        API.get(`/targets/current?workerId=${workerId}`).catch(err => {
+          console.error('Error fetching worker target in profile modal:', err);
+          return { data: null };
+        })
       ]);
+
+      if (targetRes?.data) {
+        setTargetData(targetRes.data);
+      }
 
       const allWorkers = workersRes.data || [];
       const currentWorker = allWorkers.find(w => String(w._id) === String(workerId));
@@ -374,7 +391,105 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
               </div>
             </div>
 
-            {/* 📊 2. LIFETIME PERFORMANCE STATS */}
+            {/* 🎯 2. WORKER MONTHLY SALES TARGET & PACING (ADMIN ASSIGNED) */}
+            {targetData && (
+              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
+                  <div className="flex items-center space-x-3">
+                    <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-pepsi-blue dark:text-blue-400">
+                      <TargetIcon className="w-5 h-5" />
+                    </div>
+                    <div>
+                      <div className="flex items-center space-x-2">
+                        <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
+                          Monthly Sales Target ({targetData.target?.month})
+                        </h3>
+                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-[#0051A5] dark:text-blue-300 font-bold">
+                          Assigned Target
+                        </span>
+                      </div>
+                      <p className="text-xs text-slate-500 dark:text-slate-400">
+                        Assigned volume & revenue milestone for this salesman
+                      </p>
+                    </div>
+                  </div>
+
+                  <div className="flex items-center space-x-2">
+                    {targetData.pacingStatus === 'TARGET_ACHIEVED' ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-xs font-bold">
+                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
+                        Target Achieved 🎉
+                      </span>
+                    ) : targetData.pacingStatus === 'ON_TRACK' ? (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-blue-100 text-pepsi-blue dark:bg-blue-900/40 dark:text-blue-300 text-xs font-bold">
+                        <Flame className="w-3.5 h-3.5 mr-1" />
+                        On Track 🚀
+                      </span>
+                    ) : (
+                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-xs font-bold">
+                        <Clock className="w-3.5 h-3.5 mr-1" />
+                        Behind Pace ⚠️
+                      </span>
+                    )}
+
+                    <button
+                      type="button"
+                      onClick={() => setIsTargetModalOpen(true)}
+                      className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#0051A5] hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition"
+                    >
+                      <Edit3 className="w-3.5 h-3.5" />
+                      <span>Set / Edit Target</span>
+                    </button>
+                  </div>
+                </div>
+
+                {/* Progress Bars Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+                  {/* Volume Cases */}
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-100 dark:border-slate-700 space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Volume Goal (Cases)</span>
+                      <span className="font-black text-slate-900 dark:text-white">
+                        {targetData.actualCases?.toLocaleString('en-IN')} / {targetData.target?.targetCases?.toLocaleString('en-IN')} Cases
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-[#0051A5] h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, targetData.casesProgressPct || 0)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                      <span>Completed: <strong className="text-[#0051A5] dark:text-blue-400">{targetData.casesProgressPct}%</strong></span>
+                      <span>Remaining: <strong>{targetData.remainingCasesToTarget?.toLocaleString('en-IN')} Cases</strong></span>
+                    </div>
+                  </div>
+
+                  {/* Revenue */}
+                  <div className="p-3.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-100 dark:border-slate-700 space-y-1.5">
+                    <div className="flex justify-between items-center text-xs">
+                      <span className="font-bold text-slate-700 dark:text-slate-300">Revenue Goal (₹)</span>
+                      <span className="font-black text-slate-900 dark:text-white">
+                        ₹{Number(targetData.actualRevenue || 0).toLocaleString('en-IN')} / ₹{Number(targetData.target?.targetRevenue || 0).toLocaleString('en-IN')}
+                      </span>
+                    </div>
+                    <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2.5 overflow-hidden">
+                      <div
+                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
+                        style={{ width: `${Math.min(100, targetData.revenueProgressPct || 0)}%` }}
+                      />
+                    </div>
+                    <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
+                      <span>Collected: <strong className="text-emerald-600 dark:text-emerald-400">{targetData.revenueProgressPct}%</strong></span>
+                      <span>Remaining: <strong>₹{Number(targetData.remainingRevenueToTarget || 0).toLocaleString('en-IN')}</strong></span>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+            )}
+
+            {/* 📊 3. LIFETIME PERFORMANCE STATS */}
             <div className="space-y-2">
               <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
                 Lifetime All-Time Performance
@@ -593,6 +708,18 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
           isOpen={Boolean(selectedInvoiceForModal)}
           onClose={() => setSelectedInvoiceForModal(null)}
           sale={selectedInvoiceForModal}
+        />
+      )}
+
+      {/* 🎯 TARGET MODAL (FOR SETTING / EDITING WORKER TARGET) */}
+      {isTargetModalOpen && (
+        <TargetModal
+          isOpen={isTargetModalOpen}
+          onClose={() => setIsTargetModalOpen(false)}
+          currentTarget={targetData?.target}
+          workerId={workerId}
+          workerName={profileData?.worker?.name || workerId}
+          onTargetSaved={fetchProfile}
         />
       )}
     </>
