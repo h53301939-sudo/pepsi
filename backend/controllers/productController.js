@@ -66,6 +66,20 @@ const createProduct = async (req, res) => {
 
     const cleanPrice = Number(sellingPrice);
     const cleanSize = size || '250ml';
+
+    // Prevent duplicate product creation with same name and size
+    const existing = await Product.findOne({
+      name: { $regex: new RegExp(`^${name.trim()}$`, 'i') },
+      size: cleanSize,
+      status: 'Active'
+    });
+
+    if (existing) {
+      return res.status(400).json({ 
+        message: `Product "${existing.name}" (${cleanSize}) already exists in catalog with ${existing.warehouseStock} Cases (₹${existing.sellingPrice}/Case). Please edit the existing product or delete it before re-adding.` 
+      });
+    }
+
     const cleanSku = sku || `PEP-${name.slice(0, 3).toUpperCase()}-${cleanSize.replace(/\s+/g, '')}-${Math.floor(100 + Math.random() * 900)}`;
 
     const product = new Product({

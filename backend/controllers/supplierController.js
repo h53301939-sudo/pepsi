@@ -2,19 +2,12 @@ const Supplier = require('../models/Supplier');
 const { logActivity } = require('../utils/logActivity');
 
 const getSuppliers = async (req, res) => {
-  let suppliers = await Supplier.find().sort({ name: 1 });
-  if (suppliers.length === 0) {
-    const defaultSup = await Supplier.create({
-      name: 'PepsiCo India Bottling Plant',
-      contactPerson: 'Central Distribution Manager',
-      phone: '+91 98765 00000',
-      email: 'orders@pepsico.com',
-      address: 'Central Bottling Plant, Industrial Estate',
-      gstNumber: '27AAAAA0000A1Z5'
-    });
-    suppliers = [defaultSup];
+  try {
+    const suppliers = await Supplier.find().sort({ name: 1 });
+    res.json(suppliers);
+  } catch (err) {
+    res.status(500).json({ message: err.message || 'Failed to fetch suppliers' });
   }
-  res.json(suppliers);
 };
 
 const createSupplier = async (req, res) => {

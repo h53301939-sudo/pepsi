@@ -98,25 +98,27 @@ function buildInvoiceContent(doc, sale) {
   doc.text('Rate / Case (Rs)', 360, tableHeaderY + 6, { width: 90, align: 'right' });
   doc.text('Amount (Rs)', 465, tableHeaderY + 6, { width: 80, align: 'right' });
 
-  let currentY = tableHeaderY + 26;
-  doc.font('Helvetica');
-
   // Table Rows
-  sale.items?.forEach((item, idx) => {
-    const name = item.productName || item.product?.name || 'Pepsi Item';
-    const size = item.size || item.product?.size;
-    const displayName = size && !name.toLowerCase().includes(size.toLowerCase())
-      ? `${name} (${size})`
-      : name;
+  let currentY = tableHeaderY + 28;
+  const items = sale.items || [];
 
-    if (idx % 2 === 1) {
-      doc.fillColor('#F8FAFC').rect(40, currentY - 3, 515, 18).fill();
+  items.forEach((item, index) => {
+    if (currentY > 700) {
+      doc.addPage();
+      currentY = 40;
     }
 
-    doc.fillColor('#64748B').fontSize(8).text(`${idx + 1}`, 48, currentY);
-    doc.fillColor('#0F172A').fontSize(8.5).font('Helvetica-Bold').text(displayName, 70, currentY, { width: 200 });
-    doc.font('Helvetica').fillColor('#334155').text(`${item.quantity} Cases`, 280, currentY, { width: 70, align: 'center' });
-    doc.text(`Rs.${Number(item.unitPrice || 0).toFixed(2)}`, 360, currentY, { width: 90, align: 'right' });
+    if (index % 2 === 1) {
+      doc.fillColor('#F8FAFC').rect(40, currentY - 4, 515, 18).fill();
+    }
+
+    doc.fillColor('#64748B').fontSize(8.5).font('Helvetica').text(`${index + 1}`, 48, currentY);
+    const itemName = item.productName || item.product?.name || 'Beverage Product';
+    const itemSize = item.size || item.product?.size || '';
+    doc.fillColor('#0F172A').font('Helvetica-Bold').text(`${itemName}${itemSize ? ` (${itemSize})` : ''}`, 70, currentY, { width: 200 });
+
+    doc.fillColor('#002B7F').font('Helvetica-Bold').text(`${item.quantity}`, 280, currentY, { width: 70, align: 'center' });
+    doc.fillColor('#475569').font('Helvetica').text(`Rs.${Number(item.unitPrice || 0).toFixed(2)}`, 360, currentY, { width: 90, align: 'right' });
     doc.fillColor('#0F172A').font('Helvetica-Bold').text(`Rs.${Number(item.totalAmount || (item.quantity * item.unitPrice) || 0).toFixed(2)}`, 465, currentY, { width: 80, align: 'right' });
 
     currentY += 18;
@@ -165,4 +167,161 @@ function buildInvoiceContent(doc, sale) {
   doc.fontSize(8).font('Helvetica-Oblique').fillColor('#94A3B8').text('Thank you for choosing Pepsi Products! Refresh your world.', 40, 770, { align: 'center', width: 515 });
 }
 
-module.exports = { streamInvoicePdf, generateInvoicePdfBuffer };
+/**
+ * Dynamically stream formatted Purchase Order (PO) directly to HTTP response
+ * Note: Does NOT include rates/prices as per user requirement (Item Name, Size, Quantity Cases only)
+ * @param {Object} po - Populated Purchase Order object
+ * @param {Object} res - Express response stream
+ */
+const streamPurchaseOrderPdf = (po, res) => {
+  const doc = new PDFDocument({ size: 'A4', margin: 40 });
+
+  res.setHeader('Content-Type', 'application/pdf');
+  res.setHeader('Content-Disposition', `inline; filename=PurchaseOrder_${po.poNumber}.pdf`);
+
+  doc.pipe(res);
+  buildPurchaseOrderContent(doc, po);
+  doc.end();
+};
+
+/**
+ * Generate Purchase Order PDF Buffer for direct WhatsApp delivery to supplier
+ * @param {Object} po - Populated Purchase Order object
+ * @returns {Promise<Buffer>}
+ */
+const generatePurchaseOrderPdfBuffer = (po) => {
+  return new Promise((resolve, reject) => {
+    try {
+      const doc = new PDFDocument({ size: 'A4', margin: 40 });
+      const buffers = [];
+
+      doc.on('data', (chunk) => buffers.push(chunk));
+      doc.on('end', () => resolve(Buffer.concat(buffers)));
+      doc.on('error', (err) => reject(err));
+
+      buildPurchaseOrderContent(doc, po);
+      doc.end();
+    } catch (err) {
+      reject(err);
+    }
+  });
+};
+
+function buildPurchaseOrderContent(doc, po) {
+  const logoPath = path.join(__dirname, '../assets/pepsi-logo.png');
+
+  // Draw Header
+  let textStartX = 40;
+  if (fs.existsSync(logoPath)) {
+    try {
+      doc.image(logoPath, 40, 35, { width: 46, height: 46 });
+      textStartX = 96;
+    } catch (e) {}
+  }
+
+  // Company Name & Info
+  doc.fillColor('#002B7F').fontSize(18).font('Helvetica-Bold').text('DAVID TRADERS', textStartX, 38);
+  doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text('Kaithwaliya Aloo Mandi Sonbarsa Bazar • Ph: 8932094428', textStartX, 58);
+  doc.fontSize(8).fillColor('#64748B').text('GSTIN: 09ABCDE1234F1Z5', textStartX, 70);
+
+  // PO Title Pill (Right)
+  doc.fillColor('#E0F2FE').rect(400, 35, 155, 20).fill();
+  doc.fillColor('#0369A1').fontSize(9).font('Helvetica-Bold').text('PURCHASE ORDER (PO)', 400, 41, { width: 155, align: 'center' });
+  doc.fillColor('#0F172A').fontSize(10).font('Helvetica-Bold').text(`#${po.poNumber}`, 400, 60, { width: 155, align: 'right' });
+  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Date: ${new Date(po.orderDate || Date.now()).toLocaleDateString('en-IN')}`, 400, 73, { width: 155, align: 'right' });
+
+  // Divider
+  doc.strokeColor('#E2E8F0').lineWidth(1).moveTo(40, 92).lineTo(555, 92).stroke();
+
+  // Supplier & PO Details Cards
+  const cardY = 102;
+  doc.fillColor('#F8FAFC').roundedRect(40, cardY, 250, 72, 6).fill();
+  doc.strokeColor('#E2E8F0').lineWidth(0.5).roundedRect(40, cardY, 250, 72, 6).stroke();
+
+  doc.fillColor('#94A3B8').fontSize(7.5).font('Helvetica-Bold').text('SUPPLIER / BOTTLING PLANT', 50, cardY + 8);
+  doc.fillColor('#0F172A').fontSize(10).font('Helvetica-Bold').text(po.supplierName || po.supplier?.name || 'PepsiCo Supplier', 50, cardY + 20);
+  doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text(`Contact: ${po.supplier?.contactPerson || 'Sales Team'} (Ph: ${po.supplierPhone || po.supplier?.phone || 'N/A'})`, 50, cardY + 34);
+  const supAddress = po.supplierAddress || po.supplier?.address || 'Industrial Bottling Plant';
+  doc.fillColor('#64748B').fontSize(8).text(`Address: ${supAddress}`, 50, cardY + 48, { width: 230 });
+
+  // Order Details Card (Right)
+  doc.fillColor('#F8FAFC').roundedRect(305, cardY, 250, 72, 6).fill();
+  doc.strokeColor('#E2E8F0').lineWidth(0.5).roundedRect(305, cardY, 250, 72, 6).stroke();
+
+  doc.fillColor('#94A3B8').fontSize(7.5).font('Helvetica-Bold').text('ORDER DISPATCH DETAILS', 315, cardY + 8);
+  doc.fillColor('#0F172A').fontSize(9).font('Helvetica-Bold').text(`Issued By: ${po.createdBy?.name || 'David Traders Management'}`, 315, cardY + 20);
+  const deliveryDateStr = po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString('en-IN') : 'Immediate / Next Dispatch';
+  doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text(`Expected Delivery: ${deliveryDateStr}`, 315, cardY + 34);
+  doc.fillColor('#002B7F').fontSize(8.5).font('Helvetica-Bold').text(`Status: ${po.status || 'Sent to Supplier'}`, 315, cardY + 48);
+
+  // Table Header (Item, Size, Quantity Cases - NO RATES)
+  const tableHeaderY = 186;
+  doc.fillColor('#002B7F').rect(40, tableHeaderY, 515, 22).fill();
+  doc.fillColor('#FFFFFF').fontSize(8.5).font('Helvetica-Bold');
+  doc.text('#', 48, tableHeaderY + 6);
+  doc.text('Item Description', 80, tableHeaderY + 6);
+  doc.text('Size / Packaging', 300, tableHeaderY + 6, { width: 120, align: 'left' });
+  doc.text('Quantity (Cases)', 430, tableHeaderY + 6, { width: 115, align: 'right' });
+
+  // Table Rows
+  let currentY = tableHeaderY + 28;
+  const items = po.items || [];
+
+  items.forEach((item, index) => {
+    if (currentY > 700) {
+      doc.addPage();
+      currentY = 40;
+    }
+
+    if (index % 2 === 1) {
+      doc.fillColor('#F8FAFC').rect(40, currentY - 4, 515, 20).fill();
+    }
+
+    doc.fillColor('#64748B').fontSize(8.5).font('Helvetica').text(`${index + 1}`, 48, currentY);
+    const itemName = item.productName || item.product?.name || 'Beverage Product';
+    const itemSize = item.size || item.product?.size || '-';
+
+    doc.fillColor('#0F172A').font('Helvetica-Bold').text(itemName, 80, currentY, { width: 210 });
+    doc.fillColor('#475569').font('Helvetica').text(itemSize, 300, currentY, { width: 120, align: 'left' });
+    doc.fillColor('#002B7F').font('Helvetica-Bold').fontSize(9.5).text(`${item.quantity} Cases`, 430, currentY, { width: 115, align: 'right' });
+
+    currentY += 20;
+  });
+
+  doc.strokeColor('#E2E8F0').lineWidth(0.8).moveTo(40, currentY + 4).lineTo(555, currentY + 4).stroke();
+  currentY += 16;
+
+  // Summary Card: Total Quantity Ordered
+  const totalCases = po.totalCases || items.reduce((acc, i) => acc + (Number(i.quantity) || 0), 0);
+
+  doc.fillColor('#F1F5F9').roundedRect(40, currentY, 515, 32, 6).fill();
+  doc.strokeColor('#CBD5E1').lineWidth(0.5).roundedRect(40, currentY, 515, 32, 6).stroke();
+
+  doc.fillColor('#0F172A').fontSize(10).font('Helvetica-Bold').text('TOTAL ORDER VOLUME:', 55, currentY + 10);
+  doc.fillColor('#002B7F').fontSize(12).font('Helvetica-Bold').text(`${totalCases} CASES`, 380, currentY + 9, { width: 165, align: 'right' });
+
+  currentY += 45;
+
+  // Special Notes (if any)
+  if (po.notes) {
+    doc.fillColor('#64748B').fontSize(8).font('Helvetica-Bold').text('SPECIAL INSTRUCTIONS / NOTES:', 40, currentY);
+    doc.fillColor('#334155').fontSize(8.5).font('Helvetica').text(po.notes, 40, currentY + 12, { width: 515 });
+    currentY += 32;
+  }
+
+  // Authorized Signatory Block
+  const sigY = Math.max(currentY + 20, 680);
+  doc.strokeColor('#CBD5E1').lineWidth(0.8).moveTo(380, sigY).lineTo(550, sigY).stroke();
+  doc.fillColor('#0F172A').fontSize(8.5).font('Helvetica-Bold').text('Authorized Signatory', 380, sigY + 6, { width: 170, align: 'center' });
+  doc.fillColor('#64748B').fontSize(7.5).font('Helvetica').text('David Traders', 380, sigY + 18, { width: 170, align: 'center' });
+
+  // Footer Note
+  doc.fontSize(8).font('Helvetica-Oblique').fillColor('#94A3B8').text('This is an official Purchase Order issued by David Traders. Please process delivery as scheduled.', 40, 770, { align: 'center', width: 515 });
+}
+
+module.exports = {
+  streamInvoicePdf,
+  generateInvoicePdfBuffer,
+  streamPurchaseOrderPdf,
+  generatePurchaseOrderPdfBuffer
+};

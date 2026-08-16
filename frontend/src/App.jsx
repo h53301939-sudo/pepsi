@@ -16,6 +16,7 @@ import Login from './pages/Login';
 import AdminDashboard from './pages/AdminDashboard';
 import WorkerDashboard from './pages/WorkerDashboard';
 import ProductsPage from './pages/ProductsPage';
+import PurchaseOrdersPage from './pages/PurchaseOrdersPage';
 import WarehousePage from './pages/WarehousePage';
 import PurchasesPage from './pages/PurchasesPage';
 import VehiclesPage from './pages/VehiclesPage';
@@ -172,6 +173,17 @@ export default function App() {
                   <ProtectedRoute requireAdmin={true}>
                     <DashboardLayout>
                       <ProductsPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/purchase-orders"
+                element={
+                  <ProtectedRoute requireAdmin={true}>
+                    <DashboardLayout>
+                      <PurchaseOrdersPage />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }

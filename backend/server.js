@@ -78,6 +78,7 @@ app.use('/api/activity-logs', require('./routes/activityLogRoutes'));
 app.use('/api/settings', require('./routes/settingRoutes'));
 app.use('/api/targets', require('./routes/targetRoutes'));
 app.use('/api/whatsapp', require('./routes/whatsappRoutes'));
+app.use('/api/purchase-orders', require('./routes/purchaseOrderRoutes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

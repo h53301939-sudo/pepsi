@@ -61,24 +61,6 @@ export default function PurchasesPage() {
     setItems(newItems);
   };
 
-  const handleCreateDefaultSupplier = async () => {
-    try {
-      const res = await API.post('/suppliers', {
-        name: 'PepsiCo India Bottling Plant',
-        contactPerson: 'Central Distribution Manager',
-        phone: '+91 98765 00000',
-        email: 'orders@pepsico.com',
-        address: 'Central Bottling Plant, Industrial Estate',
-        gstNumber: '27AAAAA0000A1Z5'
-      });
-      setSuppliers([res.data]);
-      setSupplierId(res.data._id);
-      toast.success('Default supplier configured successfully! 🏢', 'Supplier Ready');
-    } catch (err) {
-      toast.error('Failed to add supplier', 'Error');
-    }
-  };
-
   const handleSubmit = async (e) => {
     e.preventDefault();
     if (isSubmitting) return; // LOCK AGAINST DOUBLE-CLICKING
@@ -191,24 +173,18 @@ export default function PurchasesPage() {
             </div>
             <div>
               <div className="flex items-center justify-between mb-1">
-                <label className="block font-bold text-slate-700 dark:text-slate-300">Supplier Name</label>
-                {suppliers.length === 0 && (
-                  <button
-                    type="button"
-                    onClick={handleCreateDefaultSupplier}
-                    className="text-[10px] font-bold text-pepsi-blue hover:underline"
-                  >
-                    + Quick Add Supplier
-                  </button>
-                )}
+                <label className="block font-bold text-slate-700 dark:text-slate-300">Supplier Name *</label>
               </div>
               <select
                 value={supplierId}
                 onChange={(e) => setSupplierId(e.target.value)}
                 className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
               >
-                {suppliers.map(s => <option key={s._id} value={s._id}>{s.name}</option>)}
-                {suppliers.length === 0 && <option value="">No Supplier Available (Click Quick Add)</option>}
+                {suppliers.length === 0 ? (
+                  <option value="">No suppliers found (Please add in Purchase Orders)</option>
+                ) : (
+                  suppliers.map(s => <option key={s._id} value={s._id}>{s.name} (Ph: {s.phone})</option>)
+                )}
               </select>
             </div>
           </div>

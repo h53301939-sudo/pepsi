@@ -2,7 +2,7 @@ const pino = require('pino');
 const QRCode = require('qrcode');
 const path = require('path');
 const fs = require('fs');
-const { generateInvoicePdfBuffer } = require('../utils/pdfGenerator');
+const { generateInvoicePdfBuffer, generatePurchaseOrderPdfBuffer } = require('../utils/pdfGenerator');
 
 const AUTH_DIR = path.join(__dirname, '../whatsapp_auth');
 
@@ -211,6 +211,52 @@ async function sendInvoicePdfDirect(rawPhone, sale) {
   });
 }
 
+/**
+ * Automatically send generated Purchase Order PDF directly to supplier's WhatsApp
+ * @param {string} rawPhone - Supplier phone number
+ * @param {Object} po - Populated Purchase Order object
+ */
+async function sendPurchaseOrderPdfDirect(rawPhone, po) {
+  if (connectionStatus !== 'connected' || !sock) {
+    throw new Error('WhatsApp Gateway is not connected. Please connect WhatsApp in System Settings.');
+  }
+
+  const cleanPhone = (rawPhone || '').replace(/\D/g, '');
+  if (!cleanPhone || cleanPhone.length < 10) {
+    throw new Error('Invalid supplier phone number.');
+  }
+
+  const phoneWithCountry = cleanPhone.length === 10 ? `91${cleanPhone}` : cleanPhone;
+  const jid = `${phoneWithCountry}@s.whatsapp.net`;
+
+  const pdfBuffer = await generatePurchaseOrderPdfBuffer(po);
+  const fileName = `PurchaseOrder_${po.poNumber || 'PO'}.pdf`;
+  const dateStr = new Date(po.orderDate || Date.now()).toLocaleDateString('en-IN');
+  const deliveryStr = po.expectedDeliveryDate ? new Date(po.expectedDeliveryDate).toLocaleDateString('en-IN') : 'Immediate / Next Dispatch';
+  const caption = 
+`📋 *PURCHASE ORDER: #${po.poNumber}*
+*DAVID TRADERS*
+----------------------------------------
+*Date:* ${dateStr}
+*Supplier:* ${po.supplierName || 'Supplier'}
+*Expected Delivery:* ${deliveryStr}
+*Total Volume:* ${po.totalCases || 0} Cases
+${po.notes ? `\n📝 *Notes:* ${po.notes}` : ''}
+
+📎 *Attached is our official Purchase Order PDF. Please check the PDF for full item and size specifications.*
+
+Please confirm receipt and dispatch schedule. Thank you!`;
+
+  const result = await sock.sendMessage(jid, {
+    document: pdfBuffer,
+    mimetype: 'application/pdf',
+    fileName: fileName,
+    caption: caption
+  });
+
+  return result;
+}
+
 // Auto-initialize on server boot if auth directory exists
 if (fs.existsSync(path.join(AUTH_DIR, 'creds.json'))) {
   initWhatsApp(false);
@@ -221,5 +267,6 @@ module.exports = {
   getStatus,
   disconnectWhatsApp,
   sendCustomPdfDocument,
-  sendInvoicePdfDirect
+  sendInvoicePdfDirect,
+  sendPurchaseOrderPdfDirect
 };

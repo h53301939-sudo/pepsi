@@ -16,7 +16,8 @@ import {
   Settings,
   CornerUpLeft,
   ArrowRightLeft,
-  Store
+  Store,
+  ClipboardList
 } from 'lucide-react';
 import pepsiLogo from '../../assets/pepsi-logo.png';
 import PWAInstallButton from '../common/PWAInstallButton';
@@ -30,6 +31,7 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
     { label: 'Van Sales POS', path: '/pos', icon: ShoppingCart, role: 'all' },
     { label: 'Direct Warehouse Sale', path: '/warehouse-pos', icon: Store, role: 'all' },
     { label: 'Products Catalog', path: '/products', icon: Package, role: 'admin' },
+    { label: 'Purchase Orders (PO)', path: '/purchase-orders', icon: ClipboardList, role: 'admin' },
     { label: 'Stock Inward (Purchases)', path: '/purchases', icon: ArrowRightLeft, role: 'admin' },
     { label: 'Warehouse Stock', path: '/warehouse', icon: Warehouse, role: 'admin' },
     { label: 'Vehicle Fleet', path: '/vehicles', icon: Truck, role: 'admin' },
