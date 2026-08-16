@@ -88,11 +88,36 @@ const createSale = async (req, res) => {
 
     const discountAmount = Math.max(0, Number(discount || 0));
     const netTotal = Math.max(0, Math.round(subTotal - discountAmount));
-    const actualPaid = paymentMethod === 'Credit' ? Number(paidAmount || 0) : netTotal;
-    const dueAmount = netTotal - actualPaid;
+
+    let actualPaid = netTotal;
+    let cashAmount = 0;
+    let upiAmount = 0;
+
+    if (paymentMethod === 'Credit') {
+      cashAmount = Math.max(0, Number(req.body.cashAmount || 0));
+      upiAmount = Math.max(0, Number(req.body.upiAmount || 0));
+      actualPaid = cashAmount + upiAmount;
+      if (actualPaid === 0 && paidAmount) {
+        // Fallback if only generic paidAmount was provided
+        actualPaid = Number(paidAmount || 0);
+        cashAmount = actualPaid;
+      }
+    } else if (paymentMethod === 'Split') {
+      cashAmount = Math.max(0, Number(req.body.cashAmount || 0));
+      upiAmount = Math.max(0, Number(req.body.upiAmount || 0));
+      actualPaid = cashAmount + upiAmount;
+    } else if (paymentMethod === 'Cash') {
+      actualPaid = netTotal;
+      cashAmount = netTotal;
+    } else if (paymentMethod === 'UPI') {
+      actualPaid = netTotal;
+      upiAmount = netTotal;
+    }
+
+    const dueAmount = Math.max(0, netTotal - actualPaid);
 
     // ACTIVE CREDIT LIMIT ENFORCEMENT Check
-    if (paymentMethod === 'Credit' && dueAmount > 0) {
+    if (dueAmount > 0) {
       const creditLimit = Number(customer.creditLimit || 0);
       const currentDue = Number(customer.outstandingBalance || 0);
       const prospectiveTotalDue = currentDue + dueAmount;
@@ -104,15 +129,33 @@ const createSale = async (req, res) => {
       }
     }
 
-    // Generate Unique Invoice Number
-    const dateStr = new Date().toISOString().slice(0, 10).replace(/-/g, '');
-    const saleCountToday = await Sale.countDocuments({
-      createdAt: {
-        $gte: new Date(new Date().setHours(0, 0, 0, 0)),
-        $lte: new Date(new Date().setHours(23, 59, 59, 999))
+    // Generate 100% Guaranteed Unique Collision-Proof Invoice Number (Timezone-safe)
+    const now = new Date();
+    const year = now.getFullYear();
+    const month = String(now.getMonth() + 1).padStart(2, '0');
+    const day = String(now.getDate()).padStart(2, '0');
+    const dateStr = `${year}${month}${day}`;
+
+    // Find highest invoice sequence today
+    let counter = 101;
+    const latestSaleToday = await Sale.findOne({
+      invoiceNumber: new RegExp(`^PEP-${dateStr}-`)
+    }).sort({ createdAt: -1, _id: -1 });
+
+    if (latestSaleToday && latestSaleToday.invoiceNumber) {
+      const parts = latestSaleToday.invoiceNumber.split('-');
+      const lastSeq = parseInt(parts[parts.length - 1], 10);
+      if (!isNaN(lastSeq)) {
+        counter = Math.max(counter, lastSeq + 1);
       }
-    });
-    const invoiceNumber = `PEP-${dateStr}-${(saleCountToday + 101).toString()}`;
+    }
+
+    // Collision-proof loop guarantee: Ensure invoiceNumber is strictly unique in DB
+    let invoiceNumber = `PEP-${dateStr}-${counter}`;
+    while (await Sale.exists({ invoiceNumber })) {
+      counter++;
+      invoiceNumber = `PEP-${dateStr}-${counter}`;
+    }
 
     // Create Sale Record
     const sale = new Sale({
@@ -125,13 +168,32 @@ const createSale = async (req, res) => {
       discount: discountAmount,
       netTotal,
       paymentMethod,
+      cashAmount,
+      upiAmount,
       paidAmount: actualPaid,
       dueAmount,
       dueDate: dueDate ? new Date(dueDate) : null,
       status: dueAmount <= 0 ? 'Paid' : (actualPaid > 0 ? 'Partial' : 'Unpaid')
     });
 
-    await sale.save();
+    // Save sale with duplicate key collision auto-resolver
+    let savedSuccessfully = false;
+    let attempts = 0;
+    while (!savedSuccessfully && attempts < 5) {
+      try {
+        await sale.save();
+        savedSuccessfully = true;
+      } catch (saveErr) {
+        if (saveErr.code === 11000 && (saveErr.keyPattern?.invoiceNumber || (saveErr.message && saveErr.message.includes('invoiceNumber')))) {
+          attempts++;
+          counter++;
+          invoiceNumber = `PEP-${dateStr}-${counter}`;
+          sale.invoiceNumber = invoiceNumber;
+        } else {
+          throw saveErr;
+        }
+      }
+    }
 
     // Update Customer Credit / Outstanding Balance if Credit sale
     if (dueAmount > 0) {

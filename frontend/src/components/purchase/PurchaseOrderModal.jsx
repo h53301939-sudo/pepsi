@@ -59,50 +59,50 @@ export default function PurchaseOrderModal({ isOpen, onClose, po, onPoUpdated })
       <div className="space-y-4 text-slate-800 dark:text-slate-200">
         
         {/* 🖨️ ACTION TOOLBAR */}
-        <div className="flex flex-wrap items-center justify-between gap-2 p-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-200 dark:border-slate-700">
-          <div className="flex items-center space-x-2">
-            <span className="inline-flex items-center px-2.5 py-1 rounded-xl text-xs font-bold bg-blue-100 dark:bg-blue-950/60 text-[#0051A5] dark:text-blue-300">
+        <div className="flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-2.5 p-2.5 sm:p-3 bg-slate-50 dark:bg-slate-900/60 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-700">
+          <div className="flex items-center justify-between sm:justify-start space-x-2">
+            <span className="inline-flex items-center px-2.5 py-1 rounded-lg sm:rounded-xl text-[11px] sm:text-xs font-bold bg-blue-100 dark:bg-blue-950/60 text-[#0051A5] dark:text-blue-300">
               <Clock className="w-3.5 h-3.5 mr-1" />
               Sent to Supplier
             </span>
           </div>
 
-          <div className="flex items-center space-x-2 flex-wrap">
+          <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto sm:flex sm:items-center sm:space-x-2">
             {/* Direct WhatsApp Send */}
             <button
               onClick={handleSendWhatsApp}
               disabled={sendingWa}
-              className="flex items-center space-x-1.5 px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl font-bold text-xs shadow-sm transition disabled:opacity-50"
-              title="Send PO PDF & Summary via WhatsApp to Supplier"
+              className="flex items-center justify-center space-x-1 px-2 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl font-bold text-[11px] sm:text-xs shadow-sm transition disabled:opacity-50"
+              title="Send PO PDF via WhatsApp"
             >
-              {sendingWa ? <Loader2 className="w-4 h-4 animate-spin" /> : <MessageSquare className="w-4 h-4" />}
-              <span>{sendingWa ? 'Sending...' : 'Send WhatsApp'}</span>
+              {sendingWa ? <Loader2 className="w-3.5 h-3.5 animate-spin shrink-0" /> : <MessageSquare className="w-3.5 h-3.5 shrink-0" />}
+              <span className="truncate">{sendingWa ? 'Sending...' : 'WhatsApp'}</span>
             </button>
 
             {/* Download PDF */}
             <button
               onClick={handleDownloadPdf}
-              className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl font-bold text-xs transition"
+              className="flex items-center justify-center space-x-1 px-2 sm:px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl font-bold text-[11px] sm:text-xs transition"
               title="Download Official PDF"
             >
-              <Download className="w-4 h-4" />
-              <span>Download PDF</span>
+              <Download className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Download</span>
             </button>
 
             {/* Print */}
             <button
               onClick={handlePrint}
-              className="flex items-center space-x-1.5 px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl font-bold text-xs transition"
+              className="flex items-center justify-center space-x-1 px-2 sm:px-3 py-2 bg-slate-100 dark:bg-slate-700 hover:bg-slate-200 dark:hover:bg-slate-600 text-slate-800 dark:text-white rounded-xl font-bold text-[11px] sm:text-xs transition"
               title="Print Purchase Order"
             >
-              <Printer className="w-4 h-4" />
-              <span>Print</span>
+              <Printer className="w-3.5 h-3.5 shrink-0" />
+              <span className="truncate">Print</span>
             </button>
           </div>
         </div>
 
         {/* 📄 PRINTABLE PURCHASE ORDER DOCUMENT SHEET */}
-        <div id="printable-po" className="bg-white dark:bg-slate-800 p-4 sm:p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 select-text">
+        <div id="printable-po" className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 select-text">
           
           {/* Header */}
           <div className="flex flex-col sm:flex-row items-start sm:items-center justify-between pb-4 border-b border-slate-200 dark:border-slate-700 gap-3">

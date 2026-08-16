@@ -94,8 +94,14 @@ const getDashboardStats = async (req, res) => {
 
   todaySales.forEach(s => {
     todaySalesTotal += s.netTotal;
-    if (s.paymentMethod === 'Cash') cashToday += s.paidAmount;
-    if (s.paymentMethod === 'UPI') upiToday += s.paidAmount;
+    if (s.paymentMethod === 'Cash') {
+      cashToday += (s.cashAmount || s.paidAmount || 0);
+    } else if (s.paymentMethod === 'UPI') {
+      upiToday += (s.upiAmount || s.paidAmount || 0);
+    } else if (s.paymentMethod === 'Split' || s.paymentMethod === 'Credit') {
+      cashToday += (s.cashAmount || 0);
+      upiToday += (s.upiAmount || 0);
+    }
   });
 
   // 4. Customer Outstanding Balance
@@ -148,6 +154,7 @@ const getDashboardStats = async (req, res) => {
       cashToday,
       upiToday,
       pendingCreditAmount,
+      totalOutstandingDues: pendingCreditAmount,
       todayProfit,
       lowStockProducts,
       activeWorkers,
@@ -187,9 +194,15 @@ const getHistoricalAnalytics = async (req, res) => {
     for (const s of sales) {
       totalRevenue += s.netTotal;
 
-      if (s.paymentMethod === 'Cash') cashRevenue += s.paidAmount;
-      if (s.paymentMethod === 'UPI') upiRevenue += s.paidAmount;
-      if (s.paymentMethod === 'Credit') creditRevenue += s.dueAmount;
+      if (s.paymentMethod === 'Cash') {
+        cashRevenue += (s.cashAmount || s.paidAmount || 0);
+      } else if (s.paymentMethod === 'UPI') {
+        upiRevenue += (s.upiAmount || s.paidAmount || 0);
+      } else if (s.paymentMethod === 'Split' || s.paymentMethod === 'Credit') {
+        cashRevenue += (s.cashAmount || 0);
+        upiRevenue += (s.upiAmount || 0);
+      }
+      if (s.dueAmount > 0) creditRevenue += s.dueAmount;
 
       const workerName = s.worker?.name || 'Unassigned';
       if (!workerSalesMap[workerName]) {

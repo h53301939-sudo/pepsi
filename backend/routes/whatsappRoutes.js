@@ -54,6 +54,8 @@ router.post('/send-pdf', protect, upload.single('pdfFile'), async (req, res) => 
     const netTotal = req.body.netTotal;
     const dueAmount = req.body.dueAmount;
     const paymentMethod = req.body.paymentMethod;
+    const cashAmount = req.body.cashAmount;
+    const upiAmount = req.body.upiAmount;
     const createdAt = req.body.createdAt;
 
     if (!phone) {
@@ -81,6 +83,8 @@ router.post('/send-pdf', protect, upload.single('pdfFile'), async (req, res) => 
       netTotal,
       dueAmount,
       paymentMethod,
+      cashAmount,
+      upiAmount,
       createdAt
     });
 

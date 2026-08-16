@@ -87,9 +87,15 @@ export default function InvoicesPage() {
                   <td className="py-3 px-4 font-extrabold text-slate-900 dark:text-white">{sale.customer?.shopName}</td>
                   <td className="py-3 px-4 text-slate-600 dark:text-slate-300">{sale.worker?.name}</td>
                   <td className="py-3 px-4">
-                    <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
-                      {sale.paymentMethod}
-                    </span>
+                    {sale.paymentMethod === 'Split' ? (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-purple-100 text-purple-800 dark:bg-purple-900/40 dark:text-purple-300" title={`Cash: ₹${sale.cashAmount || 0}, UPI: ₹${sale.upiAmount || 0}`}>
+                        Split (₹{sale.cashAmount || 0} + ₹{sale.upiAmount || 0})
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded text-[10px] font-bold uppercase bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300">
+                        {sale.paymentMethod}
+                      </span>
+                    )}
                   </td>
                   <td className="py-3 px-4 text-right font-black text-slate-900 dark:text-white">
                     ₹{sale.netTotal}

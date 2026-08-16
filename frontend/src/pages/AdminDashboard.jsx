@@ -167,7 +167,7 @@ export default function AdminDashboard() {
         />
         <StatCard
           title="Outstanding Dues"
-          value={`₹${kpis.totalOutstandingDues?.toLocaleString() || 0}`}
+          value={`₹${(kpis.totalOutstandingDues ?? kpis.pendingCreditAmount ?? 0).toLocaleString()}`}
           subtitle="Customer Balance"
           icon={CreditCard}
           color="red"

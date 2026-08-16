@@ -120,10 +120,13 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
         formData.append('pdfFile', pdfBlob, `Invoice_${sale.invoiceNumber}.pdf`);
         formData.append('phone', customerPhone);
         formData.append('invoiceNumber', sale.invoiceNumber);
-        formData.append('customerName', customerName);
         formData.append('netTotal', sale.netTotal);
         formData.append('dueAmount', sale.dueAmount);
         formData.append('paymentMethod', sale.paymentMethod);
+        if (sale.paymentMethod === 'Split') {
+          formData.append('cashAmount', sale.cashAmount || 0);
+          formData.append('upiAmount', sale.upiAmount || 0);
+        }
         formData.append('createdAt', sale.createdAt);
 
         const res = await API.post('/whatsapp/send-pdf', formData, {
@@ -338,7 +341,13 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
                 <p className="text-slate-600 font-semibold">
                   Dispatch: {sale.vehicle?.vehicleNumber ? `Van (${sale.vehicle.vehicleNumber})` : 'Direct Warehouse Counter'}
                 </p>
-                <p className="text-slate-600 mt-1">Payment Mode: <span className="font-extrabold text-blue-800">{sale.paymentMethod}</span></p>
+                <p className="text-slate-600 mt-1">
+                  Payment Mode: <span className="font-extrabold text-blue-800">
+                    {sale.paymentMethod === 'Split'
+                      ? `Split (Cash: ₹${Number(sale.cashAmount || 0).toLocaleString()} | UPI: ₹${Number(sale.upiAmount || 0).toLocaleString()})`
+                      : sale.paymentMethod}
+                  </span>
+                </p>
               </div>
             </div>
 

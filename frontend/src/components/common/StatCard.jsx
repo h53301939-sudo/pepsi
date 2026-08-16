@@ -1,6 +1,6 @@
 import React from 'react';
 
-export default function StatCard({ title, value, subtitle, icon: Icon, color = 'blue', trend }) {
+export default function StatCard({ title, value, subtitle, icon: Icon, color = 'blue', valueColor, trend }) {
   const colorMap = {
     blue: 'bg-blue-50 text-[#0051A5] dark:bg-blue-950/50 dark:text-blue-300 border-blue-200 dark:border-blue-800',
     red: 'bg-red-50 text-[#E32934] dark:bg-red-950/50 dark:text-red-300 border-red-200 dark:border-red-800',
@@ -8,6 +8,8 @@ export default function StatCard({ title, value, subtitle, icon: Icon, color = '
     amber: 'bg-amber-50 text-amber-600 dark:bg-amber-950/50 dark:text-amber-300 border-amber-200 dark:border-amber-800',
     purple: 'bg-purple-50 text-purple-600 dark:bg-purple-950/50 dark:text-purple-300 border-purple-200 dark:border-purple-800',
   };
+
+  const defaultValColor = color === 'red' ? 'text-red-600 dark:text-red-400' : 'text-slate-900 dark:text-white';
 
   return (
     <div className="bg-white dark:bg-slate-800 p-4 sm:p-5 rounded-2xl border border-slate-200/80 dark:border-slate-700/70 shadow-sm hover:shadow-md hover:border-[#0051A5]/40 dark:hover:border-blue-500/40 transition-all duration-200 relative overflow-hidden group select-none">
@@ -25,7 +27,7 @@ export default function StatCard({ title, value, subtitle, icon: Icon, color = '
         )}
       </div>
       <div className="mt-2.5 sm:mt-3">
-        <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white tracking-tight">
+        <h3 className={`text-xl sm:text-2xl font-black tracking-tight ${valueColor || defaultValColor}`}>
           {value}
         </h3>
         {subtitle && (

@@ -54,7 +54,7 @@ function buildInvoiceContent(doc, sale) {
   }
 
   // Company Name & Info
-  doc.fillColor('#002B7F').fontSize(16).font('Helvetica-Bold').text('DAVID TRADERS (PEPSI DISTRIBUTOR)', textStartX, 38);
+  doc.fillColor('#002B7F').fontSize(16).font('Helvetica-Bold').text('DAVID TRADERS', textStartX, 38);
   doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text('Kaithwaliya Aloo Mandi Sonbarsa Bazar • Ph: 8932094428', textStartX, 58);
   doc.fontSize(8).fillColor('#64748B').text('sales@pepsi-distributor.com', textStartX, 70);
 
@@ -85,8 +85,25 @@ function buildInvoiceContent(doc, sale) {
   doc.fillColor('#94A3B8').fontSize(7.5).font('Helvetica-Bold').text('SOURCE & SALESMAN', 315, cardY + 8);
   doc.fillColor('#0F172A').fontSize(9).font('Helvetica-Bold').text(`Salesman: ${sale.worker?.name || 'Authorized Staff'}`, 315, cardY + 20);
   doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text(`Dispatch: ${sale.vehicle?.vehicleNumber ? `Van (${sale.vehicle.vehicleNumber})` : 'Direct Warehouse Counter'}`, 315, cardY + 34);
-  doc.fillColor('#475569').fontSize(8.5).text('Payment Mode: ', 315, cardY + 48);
-  doc.fillColor('#002B7F').font('Helvetica-Bold').text(sale.paymentMethod || 'Cash', 378, cardY + 48);
+  let paymentDisplay = sale.paymentMethod || 'Cash';
+  if (sale.paymentMethod === 'Split') {
+    paymentDisplay = `Split (Cash: Rs ${sale.cashAmount || 0} | UPI: Rs ${sale.upiAmount || 0})`;
+  } else if (sale.paymentMethod === 'Credit') {
+    if (sale.paidAmount > 0) {
+      if (sale.cashAmount > 0 && sale.upiAmount > 0) {
+        paymentDisplay = `Credit (Paid: Cash Rs ${sale.cashAmount} + UPI Rs ${sale.upiAmount})`;
+      } else if (sale.cashAmount > 0) {
+        paymentDisplay = `Credit (Paid Cash: Rs ${sale.cashAmount})`;
+      } else if (sale.upiAmount > 0) {
+        paymentDisplay = `Credit (Paid UPI: Rs ${sale.upiAmount})`;
+      } else {
+        paymentDisplay = `Credit (Paid: Rs ${sale.paidAmount})`;
+      }
+    } else {
+      paymentDisplay = 'Credit (100% Due)';
+    }
+  }
+  doc.fillColor('#002B7F').fontSize(8.5).font('Helvetica-Bold').text(`Payment Mode: ${paymentDisplay}`, 315, cardY + 48, { width: 230 });
 
   // Table Header
   const tableHeaderY = 182;

@@ -9,6 +9,8 @@ export default function SaleConfirmModal({
   totalAmount = 0,
   totalCases = 0,
   paymentMethod = 'Cash',
+  cashAmount = 0,
+  upiAmount = 0,
   isSubmitting = false
 }) {
   if (!isOpen) return null;
@@ -69,17 +71,33 @@ export default function SaleConfirmModal({
             </span>
           </div>
 
-          <div className="flex justify-between items-center">
+          <div className="flex justify-between items-start">
             <span className="text-slate-500 dark:text-slate-400 font-bold">Payment Mode:</span>
-            <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
-              paymentMethod === 'Cash'
-                ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
-                : paymentMethod === 'UPI'
-                ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
-                : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
-            }`}>
-              {paymentMethod}
-            </span>
+            <div className="text-right">
+              <span className={`px-2 py-0.5 rounded-full text-[10px] font-black ${
+                paymentMethod === 'Cash'
+                  ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                  : paymentMethod === 'UPI'
+                  ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                  : paymentMethod === 'Split'
+                  ? 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                  : 'bg-amber-100 text-amber-800 dark:bg-amber-950/60 dark:text-amber-300'
+              }`}>
+                {paymentMethod === 'Split' ? 'Split (Cash + UPI)' : paymentMethod}
+              </span>
+              {paymentMethod === 'Split' && (
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                  💵 ₹{Number(cashAmount || 0).toLocaleString()} • 📱 ₹{Number(upiAmount || 0).toLocaleString()}
+                </p>
+              )}
+              {paymentMethod === 'Credit' && (Number(cashAmount || 0) + Number(upiAmount || 0)) > 0 && (
+                <p className="text-[10px] font-bold text-slate-500 dark:text-slate-400 mt-0.5">
+                  {Number(cashAmount || 0) > 0 && <span>💵 ₹{Number(cashAmount).toLocaleString()} </span>}
+                  {Number(upiAmount || 0) > 0 && <span>📱 ₹{Number(upiAmount).toLocaleString()} </span>}
+                  <span className="text-red-500 font-extrabold">(Due: ₹{Math.max(0, totalAmount - (Number(cashAmount || 0) + Number(upiAmount || 0))).toLocaleString()})</span>
+                </p>
+              )}
+            </div>
           </div>
 
           <div className="pt-2 border-t border-slate-200 dark:border-slate-700 flex justify-between items-center">

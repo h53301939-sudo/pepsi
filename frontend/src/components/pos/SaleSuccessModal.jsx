@@ -179,8 +179,10 @@ export default function SaleSuccessModal({ isOpen, onClose, onViewBill, sale }) 
               <CreditCard className="w-3.5 h-3.5 text-slate-400" />
               <span className="font-semibold">Payment Mode</span>
             </div>
-            <span className="font-bold text-slate-800 dark:text-slate-200 capitalize">
-              {paymentMethod}
+            <span className="font-bold text-slate-800 dark:text-slate-200">
+              {paymentMethod === 'Split' 
+                ? `Split (💵 ₹${Number(sale?.cashAmount || 0).toLocaleString()} + 📱 ₹${Number(sale?.upiAmount || 0).toLocaleString()})` 
+                : paymentMethod}
             </span>
           </div>
 
