@@ -3,7 +3,7 @@
  * Version: 1.0.1
  */
 
-const CACHE_NAME = 'pepsi-pwa-v1.0.1';
+const CACHE_NAME = 'pepsi-pwa-v1.0.2';
 const STATIC_ASSETS = [
   '/',
   '/index.html',
@@ -26,7 +26,7 @@ self.addEventListener('install', (event) => {
       });
     })
   );
-  // Do not wait for old SW to retire; activate immediately
+  // Activate immediately without waiting
   self.skipWaiting();
 });
 
@@ -76,11 +76,11 @@ self.addEventListener('fetch', (event) => {
     return;
   }
 
-  // 🌐 RULE 2: NETWORK-FIRST for HTML Navigation / SPA Routes
-  // Ensures new frontend deployments and chunk updates are received immediately on reload
+  // 🌐 RULE 2: STRICT NETWORK-FIRST (NO-CACHE) for HTML Navigation / SPA Routes
+  // Ensures new frontend deployments and chunk updates are received immediately without manual refresh
   if (request.mode === 'navigate' || request.headers.get('accept')?.includes('text/html')) {
     event.respondWith(
-      fetch(request)
+      fetch(request, { cache: 'no-cache' })
         .then((networkResponse) => {
           if (networkResponse && networkResponse.status === 200) {
             const copy = networkResponse.clone();

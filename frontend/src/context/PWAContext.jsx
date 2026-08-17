@@ -94,24 +94,64 @@ export const PWAProvider = ({ children }) => {
     window.addEventListener('online', handleOnline);
     window.addEventListener('offline', handleOffline);
 
-    // 6. Register Service Worker
+    // 6. Register Service Worker with Proactive Auto-Update Engine
+    let updateInterval;
+    const checkForUpdates = (registration) => {
+      if (registration && navigator.onLine) {
+        registration.update().catch((err) => {
+          console.warn('[PWA] Background update check failed:', err);
+        });
+      }
+    };
+
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker
-        .register('/sw.js', { scope: '/' })
+        .register('/sw.js', { 
+          scope: '/',
+          updateViaCache: 'none' // ALWAYS fetch sw.js directly from network (no browser cache)
+        })
         .then((registration) => {
           setSwRegistration(registration);
 
+          // If there's already a waiting worker, activate it immediately
+          if (registration.waiting) {
+            console.log('⚡ [PWA] Activating waiting worker immediately');
+            registration.waiting.postMessage({ type: 'SKIP_WAITING' });
+          }
+
+          // Listen for new incoming Service Worker updates
           registration.onupdatefound = () => {
             const installingWorker = registration.installing;
             if (installingWorker) {
               installingWorker.onstatechange = () => {
-                if (installingWorker.state === 'installed' && navigator.serviceWorker.controller) {
-                  console.log('⚡ [PWA] New update available');
-                  setUpdateAvailable(true);
+                if (installingWorker.state === 'installed') {
+                  if (navigator.serviceWorker.controller) {
+                    console.log('⚡ [PWA] New update installed! Auto-activating immediately...');
+                    // Auto-activate immediately without waiting for manual toast click
+                    installingWorker.postMessage({ type: 'SKIP_WAITING' });
+                    setUpdateAvailable(true);
+                  }
                 }
               };
             }
           };
+
+          // 🔄 Check for updates immediately upon startup
+          checkForUpdates(registration);
+
+          // 🔄 Check for updates on every window focus & app resume (PWA Standalone Window)
+          const handleWindowFocus = () => checkForUpdates(registration);
+          const handleVisibilityChange = () => {
+            if (document.visibilityState === 'visible') {
+              checkForUpdates(registration);
+            }
+          };
+
+          window.addEventListener('focus', handleWindowFocus);
+          document.addEventListener('visibilitychange', handleVisibilityChange);
+
+          // 🔄 Background periodic check every 60 seconds
+          updateInterval = setInterval(() => checkForUpdates(registration), 60 * 1000);
         })
         .catch((err) => {
           console.warn('[PWA] Service Worker registration warning:', err);
@@ -121,6 +161,7 @@ export const PWAProvider = ({ children }) => {
       navigator.serviceWorker.addEventListener('controllerchange', () => {
         if (!refreshing) {
           refreshing = true;
+          console.log('🔄 [PWA] Controller changed -> Seamlessly reloading app to newest version...');
           window.location.reload();
         }
       });
@@ -132,6 +173,7 @@ export const PWAProvider = ({ children }) => {
       window.removeEventListener('online', handleOnline);
       window.removeEventListener('offline', handleOffline);
       mediaQuery.removeEventListener?.('change', handleMediaChange);
+      if (updateInterval) clearInterval(updateInterval);
     };
   }, []);
 
