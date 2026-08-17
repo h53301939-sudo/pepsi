@@ -3,7 +3,7 @@ import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
 import { useToast } from '../context/ToastContext';
-import { ArrowRightLeft, Plus, Trash2, CheckCircle, AlertCircle, Loader2 } from 'lucide-react';
+import { ArrowRightLeft, Plus, Trash2, CheckCircle, AlertCircle, AlertTriangle, Loader2 } from 'lucide-react';
 
 export default function PurchasesPage() {
   const { toast } = useToast();
@@ -68,6 +68,16 @@ export default function PurchasesPage() {
       toast.warning('Please select or add a supplier first', 'Supplier Required');
       return;
     }
+
+    // Anti-Loss Inward Validation
+    for (const item of items) {
+      const prod = products.find(p => p._id === item.product);
+      if (prod && Number(item.purchasePrice) >= Number(prod.sellingPrice)) {
+        toast.error(`Inward rate for ${prod.name} (₹${item.purchasePrice}) cannot be equal to or higher than current Selling Price (₹${prod.sellingPrice})!`, 'Anti-Loss Inward Block');
+        return;
+      }
+    }
+
     setIsSubmitting(true);
     try {
       await API.post('/purchases', {
@@ -191,50 +201,66 @@ export default function PurchasesPage() {
 
           <div className="space-y-2 pt-2">
             <label className="block font-bold text-slate-700 dark:text-slate-300">Shipment Line Items (Cases)</label>
-            {items.map((item, idx) => (
-              <div key={idx} className="flex items-center space-x-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
-                <select
-                  required
-                  value={item.product}
-                  onChange={(e) => handleProductSelect(idx, e.target.value)}
-                  className="flex-1 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-bold"
-                >
-                  <option value="">-- Select Product --</option>
-                  {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.size})</option>)}
-                </select>
-                <input
-                  type="number"
-                  required
-                  min="1"
-                  placeholder="Cases"
-                  value={item.quantity}
-                  onChange={(e) => {
-                    const newItems = [...items];
-                    newItems[idx].quantity = e.target.value;
-                    setItems(newItems);
-                  }}
-                  className="w-28 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-black text-center"
-                />
-                <input
-                  type="number"
-                  step="0.01"
-                  required
-                  placeholder="Price/Case (₹)"
-                  value={item.purchasePrice}
-                  onChange={(e) => {
-                    const newItems = [...items];
-                    newItems[idx].purchasePrice = e.target.value;
-                    setItems(newItems);
-                  }}
-                  className="w-32 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-black"
-                />
-                {items.length > 1 && (
-                  <button type="button" onClick={() => handleRemoveItemRow(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
-                    <Trash2 className="w-4 h-4" />
-                  </button>
-                )}
-              </div>
-            ))}
+            {items.map((item, idx) => {
+              const selectedProd = products.find(p => p._id === item.product);
+              const isItemViolation = selectedProd && item.purchasePrice !== '' && Number(item.purchasePrice) >= Number(selectedProd.sellingPrice);
+
+              return (
+                <div key={idx} className="space-y-1">
+                  <div className={`flex items-center space-x-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border ${
+                    isItemViolation ? 'border-red-500 ring-2 ring-red-500/20' : 'border-slate-200 dark:border-slate-600'
+                  }`}>
+                    <select
+                      required
+                      value={item.product}
+                      onChange={(e) => handleProductSelect(idx, e.target.value)}
+                      className="flex-1 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-bold"
+                    >
+                      <option value="">-- Select Product --</option>
+                      {products.map(p => <option key={p._id} value={p._id}>{p.name} ({p.size})</option>)}
+                    </select>
+                    <input
+                      type="number"
+                      required
+                      min="1"
+                      placeholder="Cases"
+                      value={item.quantity}
+                      onChange={(e) => {
+                        const newItems = [...items];
+                        newItems[idx].quantity = e.target.value;
+                        setItems(newItems);
+                      }}
+                      className="w-28 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-black text-center"
+                    />
+                    <input
+                      type="number"
+                      step="0.01"
+                      required
+                      placeholder="Price/Case (₹)"
+                      value={item.purchasePrice}
+                      onChange={(e) => {
+                        const newItems = [...items];
+                        newItems[idx].purchasePrice = e.target.value;
+                        setItems(newItems);
+                      }}
+                      className="w-32 p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-lg text-slate-900 dark:text-white font-black"
+                    />
+                    {items.length > 1 && (
+                      <button type="button" onClick={() => handleRemoveItemRow(idx)} className="p-2 text-red-500 hover:bg-red-50 rounded-lg">
+                        <Trash2 className="w-4 h-4" />
+                      </button>
+                    )}
+                  </div>
+
+                  {isItemViolation && (
+                    <p className="text-[11px] font-bold text-red-500 flex items-center space-x-1 pl-1">
+                      <AlertTriangle className="w-3.5 h-3.5 flex-shrink-0" />
+                      <span>⛔ Inward Cost (₹{item.purchasePrice}) is equal to or higher than current Selling Price (₹{selectedProd.sellingPrice}) for {selectedProd.name}!</span>
+                    </p>
+                  )}
+                </div>
+              );
+            })}
             <button
               type="button"
               onClick={handleAddItemRow}
@@ -247,7 +273,10 @@ export default function PurchasesPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || items.some(item => {
+              const p = products.find(prod => prod._id === item.product);
+              return p && item.purchasePrice !== '' && Number(item.purchasePrice) >= Number(p.sellingPrice);
+            })}
             className="w-full py-3 bg-pepsi-blue text-white font-bold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition shadow flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (

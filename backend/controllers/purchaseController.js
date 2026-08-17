@@ -40,6 +40,13 @@ const createPurchase = async (req, res) => {
 
     const itemQty = Number(item.quantity || 0);
     const itemPrice = Number(item.purchasePrice || 0);
+
+    if (itemPrice >= Number(product.sellingPrice || 0)) {
+      return res.status(400).json({
+        message: `Inward Purchase Rate for ${product.name} (₹${itemPrice}) cannot be equal to or higher than its current Selling Price (₹${product.sellingPrice}). Please update catalog selling price first.`
+      });
+    }
+
     const itemTotal = itemQty * itemPrice;
     totalAmount += itemTotal;
 

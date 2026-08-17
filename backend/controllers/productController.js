@@ -65,7 +65,14 @@ const createProduct = async (req, res) => {
     }
 
     const cleanPrice = Number(sellingPrice);
+    const cleanCost = Number(purchasePrice !== undefined && purchasePrice !== null && purchasePrice !== '' ? purchasePrice : cleanPrice * 0.8);
     const cleanSize = size || '250ml';
+
+    if (cleanPrice <= cleanCost) {
+      return res.status(400).json({
+        message: `Selling Price (₹${cleanPrice}) must be greater than Cost Price (₹${cleanCost}). Setting selling price at or below cost is not allowed.`
+      });
+    }
 
     // Prevent duplicate product creation with same name and size
     const existing = await Product.findOne({
@@ -89,7 +96,7 @@ const createProduct = async (req, res) => {
       sku: cleanSku,
       barcode: barcode || '',
       image: image || 'https://images.unsplash.com/photo-1622483767028-3f66f32aef97?w=500&q=80',
-      purchasePrice: Number(purchasePrice || cleanPrice * 0.8),
+      purchasePrice: cleanCost,
       sellingPrice: cleanPrice,
       mrp: Number(mrp || cleanPrice),
       unit: 'Case',
@@ -118,6 +125,15 @@ const updateProduct = async (req, res) => {
 
     if (!product) {
       return res.status(404).json({ message: 'Product not found' });
+    }
+
+    const targetCost = req.body.purchasePrice !== undefined ? Number(req.body.purchasePrice) : Number(product.purchasePrice || 0);
+    const targetSell = req.body.sellingPrice !== undefined ? Number(req.body.sellingPrice) : Number(product.sellingPrice || 0);
+
+    if (targetSell > 0 && targetCost > 0 && targetSell <= targetCost) {
+      return res.status(400).json({
+        message: `Selling Price (₹${targetSell}) must be greater than Cost Price (₹${targetCost}). Setting selling price at or below cost is not allowed.`
+      });
     }
 
     const fields = ['name', 'brand', 'category', 'sku', 'barcode', 'image', 'purchasePrice', 'sellingPrice', 'mrp', 'unit', 'size', 'crateQuantity', 'minStock', 'warehouseStock', 'status'];

@@ -3,7 +3,7 @@ import API from '../services/api';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
 import { useToast } from '../context/ToastContext';
-import { Plus, Search, Edit2, Trash2, Package, AlertCircle, TrendingUp, Loader2 } from 'lucide-react';
+import { Plus, Search, Edit2, Trash2, Package, AlertCircle, AlertTriangle, TrendingUp, Loader2 } from 'lucide-react';
 
 export default function ProductsPage() {
   const { toast } = useToast();
@@ -99,6 +99,13 @@ export default function ProductsPage() {
 
     const sPrice = Number(formData.sellingPrice);
     const pPrice = Number(formData.purchasePrice);
+
+    if (sPrice <= pPrice) {
+      const errorMsg = `Selling Price (₹${sPrice}) must be greater than Cost Price (₹${pPrice})! Selling at or below cost is not allowed.`;
+      setFormError(errorMsg);
+      toast.error(errorMsg, 'Invalid Selling Price');
+      return;
+    }
 
     setIsSubmitting(true);
     try {
@@ -340,7 +347,11 @@ export default function ProductsPage() {
                 value={formData.purchasePrice}
                 onChange={(e) => setFormData({ ...formData, purchasePrice: e.target.value })}
                 placeholder="e.g. 272"
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold text-sm"
+                className={`w-full p-2.5 bg-slate-50 dark:bg-slate-700 border rounded-xl text-slate-900 dark:text-white font-bold text-sm ${
+                  formData.purchasePrice !== '' && formData.sellingPrice !== '' && Number(formData.sellingPrice) <= Number(formData.purchasePrice)
+                    ? 'border-red-500 ring-2 ring-red-500/20'
+                    : 'border-slate-200 dark:border-slate-600'
+                }`}
               />
               <p className="text-[10px] text-slate-400 mt-0.5">Your agency purchase cost per case.</p>
             </div>
@@ -356,10 +367,34 @@ export default function ProductsPage() {
                 value={formData.sellingPrice}
                 onChange={(e) => setFormData({ ...formData, sellingPrice: e.target.value })}
                 placeholder="e.g. 340"
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black text-sm"
+                className={`w-full p-2.5 bg-slate-50 dark:bg-slate-700 border rounded-xl text-slate-900 dark:text-white font-black text-sm ${
+                  formData.purchasePrice !== '' && formData.sellingPrice !== '' && Number(formData.sellingPrice) <= Number(formData.purchasePrice)
+                    ? 'border-red-500 ring-2 ring-red-500/20'
+                    : 'border-slate-200 dark:border-slate-600'
+                }`}
               />
               <p className="text-[10px] text-slate-400 mt-0.5">Price charged to customer per case.</p>
             </div>
+
+            {/* ⚠️ LIVE ANTI-LOSS WARNING (Selling <= Cost) */}
+            {formData.purchasePrice !== '' && formData.sellingPrice !== '' && Number(formData.sellingPrice) <= Number(formData.purchasePrice) && (
+              <div className="col-span-2 p-2.5 bg-red-500/10 border border-red-500/30 rounded-xl text-red-500 text-xs font-bold flex items-center space-x-2 animate-fade-in">
+                <AlertTriangle className="w-4 h-4 flex-shrink-0" />
+                <span>
+                  ⛔ Selling Price (₹{formData.sellingPrice}) cannot be equal to or less than Cost Price (₹{formData.purchasePrice})! Please enter a higher selling rate.
+                </span>
+              </div>
+            )}
+
+            {/* ✅ LIVE PROFIT MARGIN PILL */}
+            {formData.purchasePrice !== '' && formData.sellingPrice !== '' && Number(formData.sellingPrice) > Number(formData.purchasePrice) && (
+              <div className="col-span-2 p-2 bg-emerald-500/10 border border-emerald-500/30 rounded-xl text-emerald-600 dark:text-emerald-400 text-xs font-bold flex items-center justify-between animate-fade-in">
+                <span>✓ Net Profit Margin per Case:</span>
+                <span className="font-black text-xs">
+                  +₹{(Number(formData.sellingPrice) - Number(formData.purchasePrice)).toFixed(2)} ({(((Number(formData.sellingPrice) - Number(formData.purchasePrice)) / Number(formData.purchasePrice)) * 100).toFixed(1)}%)
+                </span>
+              </div>
+            )}
           </div>
 
           <div>
@@ -376,7 +411,7 @@ export default function ProductsPage() {
 
           <button
             type="submit"
-            disabled={isSubmitting}
+            disabled={isSubmitting || (formData.purchasePrice !== '' && formData.sellingPrice !== '' && Number(formData.sellingPrice) <= Number(formData.purchasePrice))}
             className="w-full py-3.5 bg-pepsi-blue text-white font-extrabold rounded-xl hover:bg-blue-700 disabled:opacity-50 disabled:cursor-not-allowed transition text-sm shadow-md flex items-center justify-center space-x-2"
           >
             {isSubmitting ? (
