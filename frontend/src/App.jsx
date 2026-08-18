@@ -24,6 +24,7 @@ import VehicleLoadingPage from './pages/VehicleLoadingPage';
 import SalesPosPage from './pages/SalesPosPage';
 import DirectWarehousePosPage from './pages/DirectWarehousePosPage';
 import InvoicesPage from './pages/InvoicesPage';
+import OrdersPage from './pages/OrdersPage';
 import CustomersPage from './pages/CustomersPage';
 import ReturnsPage from './pages/ReturnsPage';
 import LedgerPage from './pages/LedgerPage';
@@ -239,6 +240,17 @@ export default function App() {
                   <ProtectedRoute>
                     <DashboardLayout>
                       <InvoicesPage />
+                    </DashboardLayout>
+                  </ProtectedRoute>
+                }
+              />
+
+              <Route
+                path="/orders"
+                element={
+                  <ProtectedRoute>
+                    <DashboardLayout>
+                      <OrdersPage />
                     </DashboardLayout>
                   </ProtectedRoute>
                 }

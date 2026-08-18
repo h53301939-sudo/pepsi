@@ -10,11 +10,21 @@ export const ToastProvider = ({ children }) => {
     setToasts((prev) => prev.filter((toast) => toast.id !== id));
   }, []);
 
+  const dismissAll = useCallback(() => {
+    setToasts([]);
+  }, []);
+
   const addToast = useCallback((message, type = 'success', duration = 0, title = '') => {
     const id = Date.now() + Math.random().toString(36).substring(2, 9);
     const newToast = { id, message, type, duration, title };
 
-    setToasts((prev) => [...prev, newToast]);
+    setToasts((prev) => {
+      // Prevent stacking duplicate toasts with identical title & message
+      if (prev.some((t) => t.message === message && t.title === title)) {
+        return prev;
+      }
+      return [...prev, newToast];
+    });
 
     if (duration > 0) {
       setTimeout(() => {
@@ -29,21 +39,22 @@ export const ToastProvider = ({ children }) => {
     error: (message, title = 'Error') => addToast(message, 'error', 0, title),
     warning: (message, title = 'Warning') => addToast(message, 'warning', 0, title),
     info: (message, title = 'Info') => addToast(message, 'info', 0, title),
-    remove: removeToast
+    remove: removeToast,
+    dismissAll: dismissAll
   };
 
   // Get the most recent active toast for centered modal display
   const activeToast = toasts.length > 0 ? toasts[toasts.length - 1] : null;
 
   return (
-    <ToastContext.Provider value={{ toast, addToast, removeToast }}>
+    <ToastContext.Provider value={{ toast, addToast, removeToast, dismissAll }}>
       {children}
 
-      {/* 🎯 CENTERED POPUP MODAL NOTIFICATION WITH "DONE" BUTTON */}
+      {/* 🎯 CENTERED POPUP MODAL NOTIFICATION WITH 1-CLICK DISMISS */}
       {activeToast && (
         <div 
           className="fixed inset-0 z-[9999] flex items-center justify-center p-4 bg-slate-950/65 backdrop-blur-sm animate-fade-in"
-          onClick={() => removeToast(activeToast.id)}
+          onClick={dismissAll}
         >
           <div
             className="bg-white dark:bg-slate-900 rounded-3xl max-w-sm w-full p-6 shadow-2xl border border-slate-200 dark:border-slate-800 relative overflow-hidden flex flex-col items-center text-center transform transition-all animate-slide-up"
@@ -63,8 +74,8 @@ export const ToastProvider = ({ children }) => {
             {/* ✕ Close Icon at Top Right */}
             <button
               type="button"
-              onClick={() => removeToast(activeToast.id)}
-              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition"
+              onClick={dismissAll}
+              className="absolute top-4 right-4 p-1.5 rounded-full text-slate-400 hover:text-slate-600 dark:hover:text-slate-200 hover:bg-slate-100 dark:hover:bg-slate-800 transition cursor-pointer"
               title="Close"
             >
               <X className="w-4 h-4" />
@@ -115,8 +126,8 @@ export const ToastProvider = ({ children }) => {
             {/* 🔘 "DONE" BUTTON */}
             <button
               type="button"
-              onClick={() => removeToast(activeToast.id)}
-              className={`w-full mt-5 py-3 px-4 text-white font-extrabold rounded-2xl transition shadow-lg active:scale-95 text-sm flex items-center justify-center space-x-2 ${
+              onClick={dismissAll}
+              className={`w-full mt-5 py-3 px-4 text-white font-extrabold rounded-2xl transition shadow-lg active:scale-95 text-sm flex items-center justify-center space-x-2 cursor-pointer ${
                 activeToast.type === 'success'
                   ? 'bg-emerald-600 hover:bg-emerald-700 shadow-emerald-600/25'
                   : activeToast.type === 'error'

@@ -391,28 +391,91 @@ export default function DirectWarehousePosPage() {
             </div>
 
             <div className="grid grid-cols-2 sm:grid-cols-3 gap-3">
-              {filteredProducts.map((prod) => (
-                <div
-                  key={prod._id}
-                  onClick={() => addToCart(prod)}
-                  className="bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-200 dark:border-slate-600/60 hover:border-pepsi-blue dark:hover:border-blue-400 cursor-pointer transition flex flex-col justify-between"
-                >
-                  <div className="space-y-1">
-                    <div className="flex justify-between items-start">
-                      <h4 className="font-extrabold text-xs text-slate-900 dark:text-white capitalize">{prod.name}</h4>
-                      <span className="text-[9px] font-bold bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 px-1.5 py-0.5 rounded">
-                        {prod.size || '250ml'}
-                      </span>
+              {filteredProducts.map((prod) => {
+                const cartItem = cart.find(c => c.product._id === prod._id);
+                const cartQty = cartItem ? cartItem.quantity : 0;
+                const isSelected = cartQty > 0;
+
+                return (
+                  <div
+                    key={prod._id}
+                    onClick={() => addToCart(prod)}
+                    className={`p-3.5 rounded-2xl border transition-all flex flex-col justify-between select-none cursor-pointer ${
+                      isSelected
+                        ? 'bg-blue-50/70 dark:bg-blue-950/40 border-[#0051A5] dark:border-blue-500 shadow-md ring-2 ring-blue-500/20'
+                        : 'bg-white dark:bg-slate-800 border-slate-200 dark:border-slate-700/80 hover:border-slate-300 dark:hover:border-slate-600 shadow-sm'
+                    }`}
+                  >
+                    <div className="space-y-1.5">
+                      <div className="flex justify-between items-start">
+                        <h4 className="font-black text-xs text-slate-900 dark:text-white capitalize truncate pr-1">
+                          {prod.name}
+                        </h4>
+                        <span className="text-[10px] font-extrabold bg-blue-100 text-blue-800 dark:bg-blue-900/60 dark:text-blue-300 px-1.5 py-0.5 rounded-md shrink-0">
+                          {prod.size || '250ml'}
+                        </span>
+                      </div>
+
+                      <div className="flex items-center justify-between text-xs pt-1">
+                        <span className="font-black text-[#0051A5] dark:text-blue-400">
+                          ₹{prod.sellingPrice} / Case
+                        </span>
+                        <span className="text-[10px] font-bold text-emerald-600 dark:text-emerald-400">
+                          {prod.warehouseStock || 0} Cases
+                        </span>
+                      </div>
+                    </div>
+
+                    {/* Interactive Counter Controls on Card */}
+                    <div className="mt-3 pt-2 border-t border-slate-100 dark:border-slate-700/80">
+                      {isSelected ? (
+                        <div
+                          className="flex items-center justify-between bg-white dark:bg-slate-900 p-1 rounded-xl border border-blue-200 dark:border-blue-800 shadow-inner"
+                          onClick={(e) => e.stopPropagation()}
+                        >
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              updateCartQty(prod._id, cartQty - 1);
+                            }}
+                            className="w-7 h-7 rounded-lg bg-slate-100 dark:bg-slate-800 hover:bg-red-100 dark:hover:bg-red-950/60 text-slate-700 dark:text-slate-300 hover:text-red-600 flex items-center justify-center font-black transition active:scale-95 cursor-pointer"
+                          >
+                            <Minus className="w-3.5 h-3.5 stroke-[3]" />
+                          </button>
+
+                          <div className="flex-1 text-center px-1">
+                            <input
+                              type="number"
+                              min="1"
+                              max={prod.warehouseStock || 9999}
+                              value={cartQty}
+                              onChange={(e) => updateCartQty(prod._id, parseInt(e.target.value, 10) || 0)}
+                              className="w-full text-center font-black text-sm text-[#0051A5] dark:text-blue-400 bg-transparent border-none focus:outline-none [appearance:textfield] [&::-webkit-outer-spin-button]:appearance-none [&::-webkit-inner-spin-button]:appearance-none"
+                            />
+                          </div>
+
+                          <button
+                            type="button"
+                            onClick={(e) => {
+                              e.stopPropagation();
+                              addToCart(prod);
+                            }}
+                            className="w-7 h-7 rounded-lg bg-[#0051A5] hover:bg-blue-700 text-white flex items-center justify-center font-black transition active:scale-95 shadow-sm shadow-blue-600/30 cursor-pointer"
+                          >
+                            <Plus className="w-3.5 h-3.5 stroke-[3]" />
+                          </button>
+                        </div>
+                      ) : (
+                        <div className="py-1 text-center text-[11px] font-bold text-slate-400 dark:text-slate-500 hover:text-[#0051A5] dark:hover:text-blue-400 flex items-center justify-center space-x-1 transition">
+                          <Plus className="w-3.5 h-3.5" />
+                          <span>Click to Add</span>
+                        </div>
+                      )}
                     </div>
                   </div>
-                  <div className="mt-4 flex items-center justify-between border-t pt-2 border-slate-200 dark:border-slate-600">
-                    <span className="text-xs md:text-sm font-black text-pepsi-blue dark:text-blue-400">₹{prod.sellingPrice} / Case</span>
-                    <span className="text-[11px] font-extrabold px-2 py-0.5 rounded bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300">
-                      {prod.warehouseStock || 0} Cases
-                    </span>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
               {filteredProducts.length === 0 && (
                 <div className="col-span-3 py-12 text-center text-slate-400 italic text-xs space-y-1">
                   <p className="font-bold text-slate-600 dark:text-slate-300">No products in warehouse catalog.</p>

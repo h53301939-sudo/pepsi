@@ -90,13 +90,19 @@ const loadStockToVehicle = async (req, res) => {
 // @desc    Get loading history
 // @route   GET /api/loading/history
 const getLoadingHistory = async (req, res) => {
-  const transactions = await StockTransaction.find({ transactionType: 'Warehouse_To_Vehicle' })
-    .populate('product', 'name sku unit crateQuantity sellingPrice purchasePrice')
-    .populate('destId', 'vehicleNumber vehicleName driverName')
-    .populate('user', 'name role')
-    .sort({ createdAt: -1 });
+  try {
+    const transactions = await StockTransaction.find({ transactionType: 'Warehouse_To_Vehicle' })
+      .populate('product', 'name size sku unit crateQuantity sellingPrice purchasePrice')
+      .populate('destId', 'vehicleNumber vehicleName driverName')
+      .populate('user', 'name role')
+      .sort({ createdAt: -1 })
+      .limit(50);
 
-  res.json(transactions);
+    res.json(transactions);
+  } catch (err) {
+    console.error('Error fetching loading history:', err);
+    res.status(500).json({ message: 'Failed to fetch loading history' });
+  }
 };
 
 module.exports = {

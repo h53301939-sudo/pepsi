@@ -79,6 +79,7 @@ app.use('/api/settings', require('./routes/settingRoutes'));
 app.use('/api/targets', require('./routes/targetRoutes'));
 app.use('/api/whatsapp', require('./routes/whatsappRoutes'));
 app.use('/api/purchase-orders', require('./routes/purchaseOrderRoutes'));
+app.use('/api/customer-orders', require('./routes/customerOrderRoutes'));
 
 // Health check endpoint
 app.get('/api/health', (req, res) => {

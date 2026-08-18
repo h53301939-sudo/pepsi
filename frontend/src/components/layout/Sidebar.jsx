@@ -26,67 +26,99 @@ export default function Sidebar({ mobileMenuOpen, setMobileMenuOpen }) {
   const { user } = useAuth();
   const isAdmin = user?.role === 'admin';
 
-  const navItems = [
-    { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, role: 'all' },
-    { label: 'Van Sales POS', path: '/pos', icon: ShoppingCart, role: 'all' },
-    { label: 'Direct Warehouse Sale', path: '/warehouse-pos', icon: Store, role: 'all' },
-    { label: 'Products Catalog', path: '/products', icon: Package, role: 'admin' },
-    { label: 'Purchase Orders (PO)', path: '/purchase-orders', icon: ClipboardList, role: 'admin' },
-    { label: 'Stock Inward (Purchases)', path: '/purchases', icon: ArrowRightLeft, role: 'admin' },
-    { label: 'Warehouse Stock', path: '/warehouse', icon: Warehouse, role: 'admin' },
-    { label: 'Vehicle Fleet', path: '/vehicles', icon: Truck, role: 'admin' },
-    { label: 'Van Loading', path: '/loading', icon: Package, role: 'all' },
-    { label: 'Sales Invoices', path: '/invoices', icon: Receipt, role: 'all' },
-    { label: 'Customers & Credit', path: '/customers', icon: Users, role: 'all' },
-    { label: 'Van Returns', path: '/returns', icon: CornerUpLeft, role: 'all' },
-    { label: 'Stock Ledger', path: '/ledger', icon: BookOpen, role: 'admin' },
-    { label: 'Reports & Analytics', path: '/reports', icon: BarChart3, role: 'admin' },
-    { label: 'Worker Staff', path: '/workers', icon: UserCheck, role: 'admin' },
-    { label: 'Activity Logs', path: '/activity-logs', icon: Activity, role: 'admin' },
-    { label: 'System Settings', path: '/settings', icon: Settings, role: 'admin' },
+  // Categorized Navigation Structure for Clean, Organized ERP Hierarchy
+  const navCategories = [
+    {
+      title: 'Sales & Field Orders',
+      items: [
+        { label: 'Dashboard', path: '/dashboard', icon: LayoutDashboard, role: 'all' },
+        { label: 'Van Sales POS', path: '/pos', icon: ShoppingCart, role: 'all' },
+        { label: 'Advance Orders & Bookings', path: '/orders', icon: ClipboardList, role: 'all' },
+        { label: 'Direct Warehouse Sale', path: '/warehouse-pos', icon: Store, role: 'all' },
+        { label: 'Sales Invoices', path: '/invoices', icon: Receipt, role: 'all' },
+        { label: 'Customers & Credit', path: '/customers', icon: Users, role: 'all' },
+      ]
+    },
+    {
+      title: 'Fleet & Dispatch',
+      items: [
+        { label: 'Van Loading', path: '/loading', icon: Package, role: 'all' },
+        { label: 'Van Returns', path: '/returns', icon: CornerUpLeft, role: 'all' },
+        { label: 'Vehicle Fleet', path: '/vehicles', icon: Truck, role: 'admin' },
+      ]
+    },
+    {
+      title: 'Inventory & Procurement',
+      items: [
+        { label: 'Warehouse Stock', path: '/warehouse', icon: Warehouse, role: 'admin' },
+        { label: 'Products Catalog', path: '/products', icon: Package, role: 'admin' },
+        { label: 'Purchase Orders (PO)', path: '/purchase-orders', icon: ClipboardList, role: 'admin' },
+        { label: 'Stock Inward (Purchases)', path: '/purchases', icon: ArrowRightLeft, role: 'admin' },
+        { label: 'Stock Ledger', path: '/ledger', icon: BookOpen, role: 'admin' },
+      ]
+    },
+    {
+      title: 'Management & Admin',
+      items: [
+        { label: 'Reports & Analytics', path: '/reports', icon: BarChart3, role: 'admin' },
+        { label: 'Worker Staff', path: '/workers', icon: UserCheck, role: 'admin' },
+        { label: 'Activity Logs', path: '/activity-logs', icon: Activity, role: 'admin' },
+        { label: 'System Settings', path: '/settings', icon: Settings, role: 'admin' },
+      ]
+    }
   ];
 
-  const filteredNav = navItems.filter(item => item.role === 'all' || (isAdmin && item.role === 'admin'));
-
   const navContent = (
-    <div className="p-3.5 flex flex-col justify-between h-full">
-      <div className="space-y-1">
-        <div className="px-3 py-2 text-[10px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center justify-between">
-          <span>Main Navigation</span>
-          <span className="w-1.5 h-1.5 bg-[#0051A5] rounded-full" />
-        </div>
-        {filteredNav.map((item) => {
-          const Icon = item.icon;
+    <div className="p-3 flex flex-col justify-between h-full overflow-y-auto scrollbar-none">
+      <div className="space-y-4">
+        {navCategories.map((cat, catIdx) => {
+          const visibleItems = cat.items.filter(item => item.role === 'all' || (isAdmin && item.role === 'admin'));
+          if (visibleItems.length === 0) return null;
+
           return (
-            <NavLink
-              key={item.path}
-              to={item.path}
-              onClick={() => setMobileMenuOpen && setMobileMenuOpen(false)}
-              className={({ isActive }) =>
-                `flex items-center space-x-3 px-3.5 py-2.5 rounded-xl font-bold text-xs transition-all duration-150 ${
-                  isActive
-                    ? 'bg-[#0051A5] text-white shadow-md shadow-blue-500/25 border-l-4 border-[#E32934] dark:bg-blue-700'
-                    : 'text-slate-600 dark:text-slate-300 hover:bg-blue-50/70 dark:hover:bg-slate-700/60 hover:text-[#0051A5] dark:hover:text-blue-400'
-                }`
-              }
-            >
-              <Icon className="w-4 h-4" />
-              <span>{item.label}</span>
-            </NavLink>
+            <div key={catIdx} className="space-y-1">
+              {/* Category Header Label */}
+              <div className="px-3 pt-1 pb-1 text-[9px] font-black text-slate-400 dark:text-slate-500 uppercase tracking-widest flex items-center justify-between">
+                <span>{cat.title}</span>
+                <span className="w-1 h-1 bg-slate-300 dark:bg-slate-600 rounded-full" />
+              </div>
+
+              {/* Items in Category */}
+              {visibleItems.map((item) => {
+                const Icon = item.icon;
+                return (
+                  <NavLink
+                    key={item.path}
+                    to={item.path}
+                    onClick={() => setMobileMenuOpen && setMobileMenuOpen(false)}
+                    className={({ isActive }) =>
+                      `flex items-center space-x-2.5 px-3 py-2 rounded-xl font-extrabold text-xs transition-all duration-150 ${
+                        isActive
+                          ? 'bg-[#0051A5] text-white shadow-md shadow-blue-500/25 border-l-4 border-[#E32934] dark:bg-blue-700'
+                          : 'text-slate-600 dark:text-slate-300 hover:bg-blue-50/70 dark:hover:bg-slate-700/60 hover:text-[#0051A5] dark:hover:text-blue-400'
+                      }`
+                    }
+                  >
+                    <Icon className="w-4 h-4 shrink-0" />
+                    <span className="truncate">{item.label}</span>
+                  </NavLink>
+                );
+              })}
+            </div>
           );
         })}
       </div>
 
-      <div>
+      <div className="pt-4 mt-2 border-t border-slate-100 dark:border-slate-700/60">
         {/* PWA Install Promo Box (Auto-hides when installed) */}
         <PWAInstallButton variant="sidebar" />
 
         {/* Footer Pepsi ERP Branding */}
-        <div className="p-3 mt-3 bg-slate-50 dark:bg-slate-900/60 rounded-2xl border border-slate-100 dark:border-slate-700/50 flex items-center space-x-3">
-          <img src={pepsiLogo} alt="Pepsi" className="w-7 h-7 object-contain" />
-          <div>
-            <p className="text-[11px] font-black text-slate-800 dark:text-slate-200 leading-tight">Pepsi ERP v1.0</p>
-            <p className="text-[9px] font-semibold text-slate-400">Single Source Ledger Active</p>
+        <div className="p-2.5 mt-2 bg-slate-50 dark:bg-slate-900/60 rounded-xl border border-slate-100 dark:border-slate-700/50 flex items-center space-x-2.5">
+          <img src={pepsiLogo} alt="Pepsi" className="w-6 h-6 object-contain" />
+          <div className="min-w-0">
+            <p className="text-[10px] font-black text-slate-800 dark:text-slate-200 leading-tight truncate">Pepsi ERP v1.0</p>
+            <p className="text-[8px] font-semibold text-slate-400 truncate">Single Source Ledger Active</p>
           </div>
         </div>
       </div>

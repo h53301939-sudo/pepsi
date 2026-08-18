@@ -3,7 +3,7 @@ import API from '../services/api';
 import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
 import LoadingSkeleton from '../components/common/LoadingSkeleton';
-import { Warehouse, CheckCircle, Plus, Trash2, Loader2, Truck, AlertTriangle, RotateCcw } from 'lucide-react';
+import { Warehouse, CheckCircle, Plus, Trash2, Loader2, Truck, AlertTriangle, RotateCcw, ClipboardList } from 'lucide-react';
 
 export default function VehicleLoadingPage() {
   const { user } = useAuth();
@@ -17,10 +17,38 @@ export default function VehicleLoadingPage() {
   const [loadItems, setLoadItems] = useState([{ product: '', cases: '' }]);
   const [remarks, setRemarks] = useState('');
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isLoadingDemand, setIsLoadingDemand] = useState(false);
 
   // ⚠️ Stale unreturned stock warning states (Only triggers if loaded >= 12 hours ago)
   const [isWarningModalOpen, setIsWarningModalOpen] = useState(false);
   const [isReturningStock, setIsReturningStock] = useState(false);
+
+  // 📋 Auto-Fill loading items from pending booked customer orders
+  const handleAutoFillFromBookedOrders = async () => {
+    setIsLoadingDemand(true);
+    try {
+      const res = await API.get('/customer-orders/demand-summary');
+      const demandList = res.data?.demandList || [];
+
+      if (!demandList.length) {
+        toast.info('No active booked orders found to load', 'Demand Summary');
+        return;
+      }
+
+      const populatedItems = demandList.map(d => ({
+        product: d.product?._id || d.product,
+        cases: String(d.totalQuantity)
+      }));
+
+      setLoadItems(populatedItems);
+      toast.success(`Auto-filled ${res.data.totalBookedCases} cases from ${res.data.totalBookedOrdersCount} booked customer orders! 📋`, 'Demand Loaded');
+    } catch (err) {
+      console.error('Error fetching demand summary:', err);
+      toast.error('Failed to load booked demand', 'Error');
+    } finally {
+      setIsLoadingDemand(false);
+    }
+  };
 
   const fetchData = async (suppressModal = false) => {
     try {
@@ -215,9 +243,21 @@ export default function VehicleLoadingPage() {
             </div>
 
             <div className="space-y-3 pt-2">
-              <label className="block font-bold text-slate-700 dark:text-slate-300">
-                Select Items to Load (Cases)
-              </label>
+              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-1.5">
+                <label className="block font-bold text-slate-700 dark:text-slate-300">
+                  Select Items to Load (Cases)
+                </label>
+                <button
+                  type="button"
+                  onClick={handleAutoFillFromBookedOrders}
+                  disabled={isLoadingDemand}
+                  className="self-start sm:self-auto px-2.5 py-1 bg-blue-50 dark:bg-blue-950/60 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[#0051A5] dark:text-blue-300 border border-blue-200 dark:border-blue-800 rounded-xl font-bold text-[11px] flex items-center space-x-1.5 shadow-sm transition cursor-pointer"
+                  title="Auto-fill total cases required across all customer advance bookings"
+                >
+                  {isLoadingDemand ? <Loader2 className="w-3.5 h-3.5 animate-spin" /> : <ClipboardList className="w-3.5 h-3.5" />}
+                  <span>📋 Auto-Fill From Booked Orders</span>
+                </button>
+              </div>
 
               {loadItems.map((item, idx) => (
                 <div key={idx} className="flex items-center space-x-3 bg-slate-50 dark:bg-slate-700/50 p-3 rounded-xl border border-slate-200 dark:border-slate-600">
@@ -316,22 +356,40 @@ export default function VehicleLoadingPage() {
           </h3>
 
           <div className="space-y-3 max-h-[500px] overflow-y-auto">
-            {loadingHistory.map((h) => (
-              <div key={h._id} className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-600 space-y-1">
-                <div className="flex justify-between items-start">
-                  <span className="font-black text-slate-900 dark:text-white text-xs">{h.vehicle?.vehicleNumber}</span>
-                  <span className="text-[10px] text-slate-400">
-                    {new Date(h.createdAt).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                  </span>
+            {loadingHistory.map((h) => {
+              const vanNumber = h.destId?.vehicleNumber || h.vehicle?.vehicleNumber || 'Van';
+              const vanName = h.destId?.vehicleName || '';
+              const prodName = h.product?.name || 'Stock Item';
+              const prodSize = h.product?.size ? `(${h.product.size})` : '';
+              const cases = Number(h.quantity || 0);
+              const workerName = h.user?.name || h.loadedBy?.name || 'Admin';
+
+              return (
+                <div key={h._id} className="p-3 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-200 dark:border-slate-600 space-y-1.5">
+                  <div className="flex justify-between items-start">
+                    <div>
+                      <span className="font-black text-slate-900 dark:text-white text-xs block">
+                        {vanNumber} {vanName ? `• ${vanName}` : ''}
+                      </span>
+                      <span className="text-[11px] font-bold text-slate-600 dark:text-slate-300">
+                        {prodName} {prodSize}
+                      </span>
+                    </div>
+                    <span className="text-[10px] text-slate-400 shrink-0">
+                      {new Date(h.createdAt).toLocaleDateString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                    </span>
+                  </div>
+                  <div className="flex items-center justify-between pt-1 border-t border-slate-200 dark:border-slate-600 text-xs">
+                    <div className="text-[11px] text-slate-600 dark:text-slate-300">
+                      Cases Loaded: <span className="font-black text-emerald-600 dark:text-emerald-400">{cases} Cases</span>
+                    </div>
+                    <div className="text-[10px] text-slate-400">
+                      By: {workerName}
+                    </div>
+                  </div>
                 </div>
-                <div className="text-[11px] text-slate-600 dark:text-slate-300">
-                  Total Cases Loaded: <span className="font-black text-emerald-600">{(h.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0)}</span>
-                </div>
-                <div className="text-[10px] text-slate-400">
-                  Worker: {h.loadedBy?.name || 'Admin'}
-                </div>
-              </div>
-            ))}
+              );
+            })}
             {loadingHistory.length === 0 && (
               <p className="text-center py-6 text-slate-400 text-xs italic">No load logs found.</p>
             )}
