@@ -321,7 +321,8 @@ async function sendCustomPdfDocument(rawPhone, pdfBuffer, invoiceMeta = {}) {
     }
 
     const fileName = `Invoice_${invoiceMeta.invoiceNumber || 'PEP'}.pdf`;
-    const dateStr = new Date(invoiceMeta.createdAt || Date.now()).toLocaleDateString('en-IN');
+    const dateObj = new Date(invoiceMeta.createdAt || Date.now());
+    const dateStr = `${dateObj.toLocaleDateString('en-IN')}, ${dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
     let paymentDisplay = invoiceMeta.paymentMethod || 'Cash';
     if (invoiceMeta.paymentMethod === 'Split') {
       paymentDisplay = `Split (Cash: ₹${invoiceMeta.cashAmount || 0} | UPI: ₹${invoiceMeta.upiAmount || 0})`;
@@ -345,7 +346,7 @@ async function sendCustomPdfDocument(rawPhone, pdfBuffer, invoiceMeta = {}) {
 `🧾 *DAVID TRADERS*
 ----------------------------------------
 *SALES INVOICE:* #${invoiceMeta.invoiceNumber || 'N/A'}
-*Date:* ${dateStr}
+*Date & Time:* ${dateStr}
 *Customer:* ${invoiceMeta.customerName || 'Valued Customer'}
 *Payment Mode:* ${paymentDisplay}
 💰 *NET TOTAL:* ₹${Number(invoiceMeta.netTotal || 0).toFixed(2)}

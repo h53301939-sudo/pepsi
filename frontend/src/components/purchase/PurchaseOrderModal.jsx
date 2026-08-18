@@ -19,6 +19,7 @@ import pepsiLogo from '../../assets/pepsi-logo.png';
 export default function PurchaseOrderModal({ isOpen, onClose, po, onPoUpdated }) {
   const { toast } = useToast();
   const [sendingWa, setSendingWa] = useState(false);
+  const [showWaConfirm, setShowWaConfirm] = useState(false);
 
   if (!po) return null;
 
@@ -68,9 +69,9 @@ export default function PurchaseOrderModal({ isOpen, onClose, po, onPoUpdated })
           </div>
 
           <div className="grid grid-cols-3 gap-1.5 w-full sm:w-auto sm:flex sm:items-center sm:space-x-2">
-            {/* Direct WhatsApp Send */}
+            {/* Direct WhatsApp Send with Surety Trigger */}
             <button
-              onClick={handleSendWhatsApp}
+              onClick={() => setShowWaConfirm(!showWaConfirm)}
               disabled={sendingWa}
               className="flex items-center justify-center space-x-1 px-2 sm:px-3.5 py-2 bg-emerald-600 hover:bg-emerald-700 active:scale-95 text-white rounded-xl font-bold text-[11px] sm:text-xs shadow-sm transition disabled:opacity-50"
               title="Send PO PDF via WhatsApp"
@@ -100,6 +101,35 @@ export default function PurchaseOrderModal({ isOpen, onClose, po, onPoUpdated })
             </button>
           </div>
         </div>
+
+        {/* 🛡️ INLINE WHATSAPP SURETY CONFIRMATION PROMPT */}
+        {showWaConfirm && (
+          <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs animate-slide-up">
+            <span className="font-bold text-emerald-900 dark:text-emerald-200 truncate mr-2">
+              Send PO PDF to <strong>+{po.supplierPhone || po.supplier?.phone || 'Supplier'}</strong> via WhatsApp?
+            </span>
+            <div className="flex items-center space-x-1.5 shrink-0">
+              <button
+                type="button"
+                onClick={() => setShowWaConfirm(false)}
+                className="px-2.5 py-1 text-slate-600 dark:text-slate-300 hover:bg-slate-200 dark:hover:bg-slate-800 rounded-lg font-bold"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowWaConfirm(false);
+                  handleSendWhatsApp();
+                }}
+                disabled={sendingWa}
+                className="px-3 py-1 bg-emerald-600 hover:bg-emerald-700 text-white rounded-lg font-black shadow transition flex items-center space-x-1"
+              >
+                <span>✓ Yes, Send</span>
+              </button>
+            </div>
+          </div>
+        )}
 
         {/* 📄 PRINTABLE PURCHASE ORDER DOCUMENT SHEET */}
         <div id="printable-po" className="bg-white dark:bg-slate-800 p-3.5 sm:p-6 rounded-xl sm:rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4 select-text">

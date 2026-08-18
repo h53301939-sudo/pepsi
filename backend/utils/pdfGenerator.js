@@ -1,20 +1,32 @@
 const PDFDocument = require('pdfkit');
 const path = require('path');
 const fs = require('fs');
+const Setting = require('../models/Setting');
+
+const getSafeSettings = async () => {
+  try {
+    const mongoose = require('mongoose');
+    if (mongoose.connection.readyState === 1) {
+      return await Setting.findOne().lean().exec();
+    }
+  } catch (e) {}
+  return null;
+};
 
 /**
  * Dynamically stream formatted PDF Invoice directly to HTTP response
  * @param {Object} sale - Populated sale object
  * @param {Object} res - Express response stream
  */
-const streamInvoicePdf = (sale, res) => {
+const streamInvoicePdf = async (sale, res) => {
+  const settings = await getSafeSettings();
   const doc = new PDFDocument({ size: 'A4', margin: 40 });
 
   res.setHeader('Content-Type', 'application/pdf');
   res.setHeader('Content-Disposition', `inline; filename=Invoice_${sale.invoiceNumber}.pdf`);
 
   doc.pipe(res);
-  buildInvoiceContent(doc, sale);
+  buildInvoiceContent(doc, sale, settings);
   doc.end();
 };
 
@@ -23,7 +35,8 @@ const streamInvoicePdf = (sale, res) => {
  * @param {Object} sale - Populated sale object
  * @returns {Promise<Buffer>}
  */
-const generateInvoicePdfBuffer = (sale) => {
+const generateInvoicePdfBuffer = async (sale) => {
+  const settings = await getSafeSettings();
   return new Promise((resolve, reject) => {
     try {
       const doc = new PDFDocument({ size: 'A4', margin: 40 });
@@ -33,7 +46,7 @@ const generateInvoicePdfBuffer = (sale) => {
       doc.on('end', () => resolve(Buffer.concat(buffers)));
       doc.on('error', (err) => reject(err));
 
-      buildInvoiceContent(doc, sale);
+      buildInvoiceContent(doc, sale, settings);
       doc.end();
     } catch (err) {
       reject(err);
@@ -41,82 +54,112 @@ const generateInvoicePdfBuffer = (sale) => {
   });
 };
 
-function buildInvoiceContent(doc, sale) {
+function buildInvoiceContent(doc, sale, settings = null) {
   const logoPath = path.join(__dirname, '../assets/pepsi-logo.png');
 
-  // Draw Header
+  // Company metadata from settings or fallback defaults
+  const companyName = settings?.companyName || 'DAVID TRADERS';
+  const companyAddress = settings?.address || 'Plot 42, Pepsi Beverage Park, Industrial Zone, Mumbai - 400072';
+  const companyPhone = settings?.phone || '+91 98765 43210';
+  const companyEmail = settings?.email || 'sales@pepsi-distributor.com';
+  const footerNote = settings?.invoiceFooter || 'Thank you for choosing Pepsi Products! Refresh your world.';
+
+  // -----------------------------------------------------------------
+  // 1. TOP HEADER (MATCHING IMAGE 1)
+  // -----------------------------------------------------------------
   let textStartX = 40;
   if (fs.existsSync(logoPath)) {
     try {
-      doc.image(logoPath, 40, 35, { width: 46, height: 46 });
-      textStartX = 96;
-    } catch (e) {}
+      // Circular frame around Pepsi logo
+      doc.save();
+      doc.circle(63, 58, 22).clip();
+      doc.image(logoPath, 41, 36, { width: 44, height: 44 });
+      doc.restore();
+      doc.circle(63, 58, 22).lineWidth(0.8).strokeColor('#E2E8F0').stroke();
+      textStartX = 94;
+    } catch (e) {
+      textStartX = 40;
+    }
   }
 
   // Company Name & Info
-  doc.fillColor('#002B7F').fontSize(16).font('Helvetica-Bold').text('DAVID TRADERS', textStartX, 38);
-  doc.fontSize(8.5).font('Helvetica').fillColor('#475569').text('Kaithwaliya Aloo Mandi Sonbarsa Bazar • Ph: 8932094428', textStartX, 58);
-  doc.fontSize(8).fillColor('#64748B').text('sales@pepsi-distributor.com', textStartX, 70);
+  doc.fillColor('#002B7F').fontSize(16).font('Helvetica-Bold').text(companyName, textStartX, 36);
+  doc.fontSize(8.5).font('Helvetica').fillColor('#334155').text(companyAddress, textStartX, 56, { width: 310 });
+  doc.fontSize(8).fillColor('#64748B').text(`Ph: ${companyPhone}  •  Email: ${companyEmail}`, textStartX, 70);
 
-  // Invoice Title Pill (Right)
-  doc.fillColor('#E0F2FE').rect(410, 35, 145, 20).fill();
-  doc.fillColor('#0369A1').fontSize(9).font('Helvetica-Bold').text('SALES INVOICE', 410, 41, { width: 145, align: 'center' });
-  doc.fillColor('#0F172A').fontSize(10).font('Helvetica-Bold').text(`#${sale.invoiceNumber}`, 410, 60, { width: 145, align: 'right' });
-  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Date: ${new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN')}`, 410, 73, { width: 145, align: 'right' });
+  // Sales Invoice Title Pill (Top-Right)
+  doc.fillColor('#E0F2FE').roundedRect(420, 35, 135, 18, 4).fill();
+  doc.fillColor('#0369A1').fontSize(8.5).font('Helvetica-Bold').text('SALES INVOICE', 420, 39, { width: 135, align: 'center' });
+  doc.fillColor('#0F172A').fontSize(11).font('Helvetica-Bold').text(`#${sale.invoiceNumber}`, 370, 58, { width: 185, align: 'right' });
+  const saleDateObj = new Date(sale.createdAt || Date.now());
+  const saleDateFormatted = `${saleDateObj.toLocaleDateString('en-IN')} • ${saleDateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Date: ${saleDateFormatted}`, 370, 72, { width: 185, align: 'right' });
 
-  // Divider
-  doc.strokeColor('#E2E8F0').lineWidth(1).moveTo(40, 92).lineTo(555, 92).stroke();
+  // Subtle Header Divider
+  doc.strokeColor('#E2E8F0').lineWidth(0.8).moveTo(40, 90).lineTo(555, 90).stroke();
 
-  // Customer & Van Info Cards
-  const cardY = 102;
-  doc.fillColor('#F8FAFC').roundedRect(40, cardY, 250, 68, 6).fill();
-  doc.strokeColor('#E2E8F0').lineWidth(0.5).roundedRect(40, cardY, 250, 68, 6).stroke();
+  // -----------------------------------------------------------------
+  // 2. CUSTOMER & SALESMAN CARDS (MATCHING IMAGE 1)
+  // -----------------------------------------------------------------
+  const cardY = 100;
+  const cardH = 68;
+
+  // Left Card: Billed to Customer
+  doc.fillColor('#F8FAFC').roundedRect(40, cardY, 250, cardH, 8).fill();
+  doc.strokeColor('#E2E8F0').lineWidth(0.6).roundedRect(40, cardY, 250, cardH, 8).stroke();
 
   doc.fillColor('#94A3B8').fontSize(7.5).font('Helvetica-Bold').text('BILLED TO CUSTOMER', 50, cardY + 8);
-  doc.fillColor('#0F172A').fontSize(10).font('Helvetica-Bold').text(sale.customer?.shopName || 'Valued Customer', 50, cardY + 20);
-  doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text(`Owner: ${sale.customer?.ownerName || 'N/A'} (Ph: ${sale.customer?.phone || 'N/A'})`, 50, cardY + 34);
+  doc.fillColor('#0F172A').fontSize(11).font('Helvetica-Bold').text(sale.customer?.shopName || 'Valued Customer', 50, cardY + 20, { width: 230 });
+  doc.fillColor('#334155').fontSize(8.5).font('Helvetica').text(`Owner: ${sale.customer?.ownerName || 'N/A'} (Ph: ${sale.customer?.phone || 'N/A'})`, 50, cardY + 34, { width: 230 });
   const custAddress = sale.customer?.address || sale.customerAddress || 'Sonbarsa Bazar, Kaithwaliya';
-  doc.fillColor('#64748B').fontSize(8).text(`Address: ${custAddress}`, 50, cardY + 48, { width: 230 });
+  doc.fillColor('#64748B').fontSize(8).font('Helvetica').text(`Address: ${custAddress}`, 50, cardY + 48, { width: 230 });
 
-  // Dispatch & Payment Card (Right)
-  doc.fillColor('#F8FAFC').roundedRect(305, cardY, 250, 68, 6).fill();
-  doc.strokeColor('#E2E8F0').lineWidth(0.5).roundedRect(305, cardY, 250, 68, 6).stroke();
+  // Right Card: Source & Salesman
+  doc.fillColor('#F8FAFC').roundedRect(305, cardY, 250, cardH, 8).fill();
+  doc.strokeColor('#E2E8F0').lineWidth(0.6).roundedRect(305, cardY, 250, cardH, 8).stroke();
 
   doc.fillColor('#94A3B8').fontSize(7.5).font('Helvetica-Bold').text('SOURCE & SALESMAN', 315, cardY + 8);
-  doc.fillColor('#0F172A').fontSize(9).font('Helvetica-Bold').text(`Salesman: ${sale.worker?.name || 'Authorized Staff'}`, 315, cardY + 20);
-  doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text(`Dispatch: ${sale.vehicle?.vehicleNumber ? `Van (${sale.vehicle.vehicleNumber})` : 'Direct Warehouse Counter'}`, 315, cardY + 34);
+  doc.fillColor('#0F172A').fontSize(8.5).font('Helvetica').text(`Salesman: ${sale.worker?.name || 'Rajesh Sharma (Admin)'}`, 315, cardY + 20, { width: 230 });
+  doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text(`Dispatch: ${sale.vehicle?.vehicleNumber ? `Van (${sale.vehicle.vehicleNumber})` : 'Direct Warehouse Counter'}`, 315, cardY + 34, { width: 230 });
+
   let paymentDisplay = sale.paymentMethod || 'Cash';
   if (sale.paymentMethod === 'Split') {
-    paymentDisplay = `Split (Cash: Rs ${sale.cashAmount || 0} | UPI: Rs ${sale.upiAmount || 0})`;
+    paymentDisplay = `Split (Cash: ₹${Number(sale.cashAmount || 0).toLocaleString()} | UPI: ₹${Number(sale.upiAmount || 0).toLocaleString()})`;
   } else if (sale.paymentMethod === 'Credit') {
     if (sale.paidAmount > 0) {
       if (sale.cashAmount > 0 && sale.upiAmount > 0) {
-        paymentDisplay = `Credit (Paid: Cash Rs ${sale.cashAmount} + UPI Rs ${sale.upiAmount})`;
+        paymentDisplay = `Credit (Paid: Cash ₹${sale.cashAmount} + UPI ₹${sale.upiAmount})`;
       } else if (sale.cashAmount > 0) {
-        paymentDisplay = `Credit (Paid Cash: Rs ${sale.cashAmount})`;
+        paymentDisplay = `Credit (Paid Cash: ₹${sale.cashAmount})`;
       } else if (sale.upiAmount > 0) {
-        paymentDisplay = `Credit (Paid UPI: Rs ${sale.upiAmount})`;
+        paymentDisplay = `Credit (Paid UPI: ₹${sale.upiAmount})`;
       } else {
-        paymentDisplay = `Credit (Paid: Rs ${sale.paidAmount})`;
+        paymentDisplay = `Credit (Paid: ₹${sale.paidAmount})`;
       }
     } else {
       paymentDisplay = 'Credit (100% Due)';
     }
   }
-  doc.fillColor('#002B7F').fontSize(8.5).font('Helvetica-Bold').text(`Payment Mode: ${paymentDisplay}`, 315, cardY + 48, { width: 230 });
+  doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text('Payment Mode: ', 315, cardY + 48, { continued: true });
+  doc.fillColor('#002B7F').font('Helvetica-Bold').text(paymentDisplay);
 
-  // Table Header
-  const tableHeaderY = 182;
-  doc.fillColor('#002B7F').rect(40, tableHeaderY, 515, 22).fill();
-  doc.fillColor('#FFFFFF').fontSize(8.5).font('Helvetica-Bold');
+  // -----------------------------------------------------------------
+  // 3. ITEMS TABLE (MATCHING IMAGE 1 - LIGHT GREY HEADER)
+  // -----------------------------------------------------------------
+  const tableHeaderY = 178;
+  // Light Grey Table Header (#F1F5F9) matching Image 1
+  doc.fillColor('#F1F5F9').rect(40, tableHeaderY, 515, 20).fill();
+  doc.strokeColor('#E2E8F0').lineWidth(0.8).moveTo(40, tableHeaderY + 20).lineTo(555, tableHeaderY + 20).stroke();
+
+  doc.fillColor('#475569').fontSize(7.5).font('Helvetica-Bold');
   doc.text('#', 48, tableHeaderY + 6);
-  doc.text('Item Description', 70, tableHeaderY + 6);
-  doc.text('Qty (Cases)', 280, tableHeaderY + 6, { width: 70, align: 'center' });
-  doc.text('Rate / Case (Rs)', 360, tableHeaderY + 6, { width: 90, align: 'right' });
-  doc.text('Amount (Rs)', 465, tableHeaderY + 6, { width: 80, align: 'right' });
+  doc.text('ITEM DESCRIPTION', 70, tableHeaderY + 6);
+  doc.text('QTY (CASES)', 270, tableHeaderY + 6, { width: 80, align: 'center' });
+  doc.text('CASE RATE (Rs)', 360, tableHeaderY + 6, { width: 90, align: 'right' });
+  doc.text('AMOUNT (Rs)', 460, tableHeaderY + 6, { width: 85, align: 'right' });
 
   // Table Rows
-  let currentY = tableHeaderY + 28;
+  let currentY = tableHeaderY + 26;
   const items = sale.items || [];
 
   items.forEach((item, index) => {
@@ -125,63 +168,75 @@ function buildInvoiceContent(doc, sale) {
       currentY = 40;
     }
 
-    if (index % 2 === 1) {
-      doc.fillColor('#F8FAFC').rect(40, currentY - 4, 515, 18).fill();
-    }
-
     doc.fillColor('#64748B').fontSize(8.5).font('Helvetica').text(`${index + 1}`, 48, currentY);
-    const itemName = item.productName || item.product?.name || 'Beverage Product';
+    const itemName = item.productName || item.product?.name || 'Pepsi Item';
     const itemSize = item.size || item.product?.size || '';
-    doc.fillColor('#0F172A').font('Helvetica-Bold').text(`${itemName}${itemSize ? ` (${itemSize})` : ''}`, 70, currentY, { width: 200 });
+    const fullDisplayName = itemSize && !itemName.toLowerCase().includes(itemSize.toLowerCase())
+      ? `${itemName} (${itemSize})`
+      : itemName;
 
-    doc.fillColor('#002B7F').font('Helvetica-Bold').text(`${item.quantity}`, 280, currentY, { width: 70, align: 'center' });
-    doc.fillColor('#475569').font('Helvetica').text(`Rs.${Number(item.unitPrice || 0).toFixed(2)}`, 360, currentY, { width: 90, align: 'right' });
-    doc.fillColor('#0F172A').font('Helvetica-Bold').text(`Rs.${Number(item.totalAmount || (item.quantity * item.unitPrice) || 0).toFixed(2)}`, 465, currentY, { width: 80, align: 'right' });
+    doc.fillColor('#0F172A').font('Helvetica-Bold').fontSize(9).text(fullDisplayName, 70, currentY, { width: 195 });
+    doc.fillColor('#0F172A').font('Helvetica-Bold').fontSize(9).text(`${item.quantity} Cases`, 270, currentY, { width: 80, align: 'center' });
+    doc.fillColor('#334155').font('Helvetica').fontSize(8.5).text(`Rs.${Number(item.unitPrice || 0).toFixed(2)}`, 360, currentY, { width: 90, align: 'right' });
+    const itemTotal = item.totalAmount || (item.quantity * item.unitPrice) || 0;
+    doc.fillColor('#0F172A').font('Helvetica-Bold').fontSize(9.5).text(`Rs.${Number(itemTotal).toFixed(2)}`, 460, currentY, { width: 85, align: 'right' });
 
     currentY += 18;
+    // Row bottom separator line
+    doc.strokeColor('#F1F5F9').lineWidth(0.5).moveTo(40, currentY - 2).lineTo(555, currentY - 2).stroke();
   });
 
+  // Table Bottom Divider
   doc.strokeColor('#E2E8F0').lineWidth(0.8).moveTo(40, currentY + 4).lineTo(555, currentY + 4).stroke();
   currentY += 16;
 
-  // Summary & Totals Block
+  // -----------------------------------------------------------------
+  // 4. SUMMARY & TOTALS (MATCHING IMAGE 1)
+  // -----------------------------------------------------------------
   const subTotal = sale.subTotal || sale.items?.reduce((acc, i) => acc + (i.totalAmount || 0), 0) || sale.netTotal;
   const discount = Number(sale.discount || 0);
 
-  // Status Badge (Left)
+  // Left: Paid / Due Status Badge & Note
   if (sale.status === 'Paid' || (sale.dueAmount <= 0 && sale.paidAmount >= sale.netTotal)) {
-    doc.fillColor('#D1FAE5').roundedRect(40, currentY, 80, 18, 4).fill();
-    doc.fillColor('#065F46').fontSize(8).font('Helvetica-Bold').text('PAID FULL', 40, currentY + 5, { width: 80, align: 'center' });
+    doc.fillColor('#ECFDF5').roundedRect(40, currentY, 80, 18, 9).fill();
+    doc.strokeColor('#A7F3D0').lineWidth(0.6).roundedRect(40, currentY, 80, 18, 9).stroke();
+    doc.fillColor('#065F46').fontSize(7.5).font('Helvetica-Bold').text('PAID FULL', 40, currentY + 5, { width: 80, align: 'center' });
   } else {
-    doc.fillColor('#FEF3C7').roundedRect(40, currentY, 120, 18, 4).fill();
-    doc.fillColor('#92400E').fontSize(8).font('Helvetica-Bold').text(`DUE: Rs.${sale.dueAmount}`, 40, currentY + 5, { width: 120, align: 'center' });
+    doc.fillColor('#FEF3C7').roundedRect(40, currentY, 110, 18, 9).fill();
+    doc.strokeColor('#FDE68A').lineWidth(0.6).roundedRect(40, currentY, 110, 18, 9).stroke();
+    doc.fillColor('#92400E').fontSize(7.5).font('Helvetica-Bold').text(`DUE: Rs.${Number(sale.dueAmount).toFixed(2)}`, 40, currentY + 5, { width: 110, align: 'center' });
   }
 
-  // Totals Breakdown (Right)
+  // Footer Tagline Note (under badge)
+  doc.fontSize(7.5).font('Helvetica-Oblique').fillColor('#94A3B8').text(footerNote, 40, currentY + 24, { width: 280 });
+
+  // Right: Sub Total, Discount, Net Total, Paid Amount
+  const rightLabelX = 330;
+  const rightValX = 455;
+  const rightValW = 90;
+
   if (discount > 0) {
-    doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text('Sub Total:', 350, currentY, { width: 100, align: 'right' });
-    doc.text(`Rs.${subTotal.toFixed(2)}`, 465, currentY, { width: 80, align: 'right' });
+    doc.fillColor('#475569').fontSize(8.5).font('Helvetica').text('Sub Total:', rightLabelX, currentY, { width: 120, align: 'right' });
+    doc.fillColor('#334155').fontSize(8.5).font('Helvetica').text(`Rs.${subTotal.toFixed(2)}`, rightValX, currentY, { width: rightValW, align: 'right' });
     currentY += 14;
 
-    doc.fillColor('#059669').font('Helvetica-Bold').text('Discount:', 350, currentY, { width: 100, align: 'right' });
-    doc.text(`-Rs.${discount.toFixed(2)}`, 465, currentY, { width: 80, align: 'right' });
+    doc.fillColor('#059669').fontSize(8.5).font('Helvetica-Bold').text('Discount:', rightLabelX, currentY, { width: 120, align: 'right' });
+    doc.text(`-Rs.${discount.toFixed(2)}`, rightValX, currentY, { width: rightValW, align: 'right' });
     currentY += 14;
   }
 
-  doc.strokeColor('#CBD5E1').lineWidth(0.5).moveTo(350, currentY + 2).lineTo(555, currentY + 2).stroke();
+  // Net Total Top Line
+  doc.strokeColor('#E2E8F0').lineWidth(0.8).moveTo(360, currentY).lineTo(555, currentY).stroke();
   currentY += 6;
 
-  doc.fillColor('#002B7F').fontSize(12).font('Helvetica-Bold').text('NET TOTAL:', 340, currentY, { width: 110, align: 'right' });
-  doc.fontSize(12).text(`Rs.${Number(sale.netTotal || 0).toFixed(2)}`, 465, currentY, { width: 80, align: 'right' });
+  doc.fillColor('#0F172A').fontSize(11).font('Helvetica-Bold').text('Net Total:', rightLabelX, currentY, { width: 120, align: 'right' });
+  doc.fillColor('#002B7F').fontSize(13).font('Helvetica-Bold').text(`Rs.${Number(sale.netTotal || 0).toFixed(2)}`, rightValX, currentY - 1, { width: rightValW, align: 'right' });
   currentY += 18;
 
   if (sale.paidAmount !== undefined) {
-    doc.fillColor('#059669').fontSize(8.5).font('Helvetica').text('Paid Amount:', 350, currentY, { width: 100, align: 'right' });
-    doc.text(`Rs.${Number(sale.paidAmount || 0).toFixed(2)}`, 465, currentY, { width: 80, align: 'right' });
+    doc.fillColor('#059669').fontSize(8.5).font('Helvetica-Bold').text('Paid Amount:', rightLabelX, currentY, { width: 120, align: 'right' });
+    doc.text(`Rs.${Number(sale.paidAmount || 0).toFixed(2)}`, rightValX, currentY, { width: rightValW, align: 'right' });
   }
-
-  // Footer Note
-  doc.fontSize(8).font('Helvetica-Oblique').fillColor('#94A3B8').text('Thank you for choosing Pepsi Products! Refresh your world.', 40, 770, { align: 'center', width: 515 });
 }
 
 /**
@@ -244,8 +299,10 @@ function buildPurchaseOrderContent(doc, po) {
   // PO Title Pill (Right)
   doc.fillColor('#E0F2FE').rect(400, 35, 155, 20).fill();
   doc.fillColor('#0369A1').fontSize(9).font('Helvetica-Bold').text('PURCHASE ORDER (PO)', 400, 41, { width: 155, align: 'center' });
-  doc.fillColor('#0F172A').fontSize(10).font('Helvetica-Bold').text(`#${po.poNumber}`, 400, 60, { width: 155, align: 'right' });
-  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Date: ${new Date(po.orderDate || Date.now()).toLocaleDateString('en-IN')}`, 400, 73, { width: 155, align: 'right' });
+  doc.fillColor('#0F172A').fontSize(10).font('Helvetica-Bold').text(`#${po.poNumber}`, 370, 60, { width: 185, align: 'right' });
+  const poDateObj = new Date(po.orderDate || Date.now());
+  const poDateFormatted = `${poDateObj.toLocaleDateString('en-IN')} • ${poDateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
+  doc.fontSize(8).font('Helvetica').fillColor('#64748B').text(`Date: ${poDateFormatted}`, 370, 73, { width: 185, align: 'right' });
 
   // Divider
   doc.strokeColor('#E2E8F0').lineWidth(1).moveTo(40, 92).lineTo(555, 92).stroke();

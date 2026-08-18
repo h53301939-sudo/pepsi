@@ -171,8 +171,9 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
         phoneWithCountry = cleanPhone;
       }
 
-      const companyName = agencySettings?.companyName || 'DAVID TRADERS';69 
-      const dateStr = new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN');
+      const companyName = agencySettings?.companyName || 'DAVID TRADERS';
+      const dateObj = new Date(sale.createdAt || Date.now());
+      const dateStr = `${dateObj.toLocaleDateString('en-IN')}, ${dateObj.toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}`;
       const pdfDownloadLink = `${window.location.origin}/api/sales/${sale._id}/pdf`;
 
       let itemsText = '';
@@ -191,7 +192,7 @@ export default function InvoiceModal({ isOpen, onClose, sale, isNewSale = false 
 `🧾 *${companyName.toUpperCase()}*
 ----------------------------------------
 *SALES INVOICE:* #${sale.invoiceNumber}
-*Date:* ${dateStr}
+*Date & Time:* ${dateStr}
 *Customer:* ${customerName}
 *Payment Mode:* ${sale.paymentMethod}
 
@@ -319,7 +320,9 @@ Thank you for choosing Pepsi Products! Refresh your world.`;
                   SALES INVOICE
                 </span>
                 <h3 className="text-sm font-black text-slate-900 mt-1.5">#{sale.invoiceNumber}</h3>
-                <p className="text-xs text-slate-500 font-semibold">Date: {new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN')}</p>
+                <p className="text-xs text-slate-500 font-semibold">
+                  Date: {new Date(sale.createdAt || Date.now()).toLocaleDateString('en-IN')} • {new Date(sale.createdAt || Date.now()).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit', hour12: true })}
+                </p>
               </div>
             </div>
 

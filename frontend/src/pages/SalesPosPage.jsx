@@ -6,16 +6,18 @@ import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import SaleSuccessModal from '../components/pos/SaleSuccessModal';
 import SaleConfirmModal from '../components/pos/SaleConfirmModal';
+import PaymentWizardModal from '../components/pos/PaymentWizardModal';
 import CustomerAvatar from '../components/common/CustomerAvatar';
 import Modal from '../components/common/Modal';
 import { playCartBeep, playSaleSuccessSound } from '../utils/audio';
-import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Tag, Truck } from 'lucide-react';
+import { ShoppingCart, Plus, Minus, Trash2, Search, UserPlus, CheckCircle, AlertTriangle, Package, Loader2, Tag, Truck, ArrowRight, ChevronRight } from 'lucide-react';
 
 export default function SalesPosPage() {
   const { user } = useAuth();
   const { toast } = useToast();
   const [vehicles, setVehicles] = useState([]);
   const [isConfirmModalOpen, setIsConfirmModalOpen] = useState(false);
+  const [isPaymentWizardOpen, setIsPaymentWizardOpen] = useState(false);
   const [selectedVehicleId, setSelectedVehicleId] = useState(() => {
     return localStorage.getItem('pepsi_pos_vehicle') || '';
   });
@@ -228,31 +230,25 @@ export default function SalesPosPage() {
     ((selectedCustomerObj.outstandingBalance || 0) + prospectiveDue) > selectedCustomerObj.creditLimit;
 
   const handleProcessSale = () => {
-    if (isSubmitting) return; // Prevent double trigger
-    if (!selectedVehicleId) return alert('Select delivery van');
-    if (!selectedCustomerId) return alert('Select customer');
-    if (cart.length === 0) return alert('Cart is empty');
-
-    if (paymentMethod === 'Split') {
-      const cashVal = Number(splitCashAmount || 0);
-      const upiVal = Number(splitUpiAmount || 0);
-      if (cashVal + upiVal <= 0) {
-        return alert('Please enter at least Cash or UPI amount for Split payment.');
-      }
+    if (isSubmitting) return;
+    if (!selectedVehicleId) {
+      toast.warning('Please select a delivery van first', 'Van Required');
+      return;
     }
-
-    if (isCreditExceeded) {
-      const currentDue = selectedCustomerObj.outstandingBalance || 0;
-      const limit = selectedCustomerObj.creditLimit;
-      alert(`⛔ SALE BLOCKED: Credit limit of ₹${limit.toLocaleString()} exceeded for ${selectedCustomerObj.shopName}!\n\nCurrent Due: ₹${currentDue.toLocaleString()}\nNew Bill Due: ₹${prospectiveDue.toLocaleString()}\nTotal: ₹${(currentDue + prospectiveDue).toLocaleString()}\n\nPlease collect payment or increase credit limit in Customers page.`);
+    if (!selectedCustomerId) {
+      toast.warning('Please select a customer first', 'Customer Required');
+      return;
+    }
+    if (cart.length === 0) {
+      toast.warning('Your cart is empty', 'Empty Cart');
       return;
     }
 
-    // Open confirmation modal to prevent accidental clicks
-    setIsConfirmModalOpen(true);
+    // Open multi-step Payment Wizard Modal
+    setIsPaymentWizardOpen(true);
   };
 
-  const handleConfirmAndExecuteSale = async () => {
+  const handleExecuteSaleWithData = async (paymentData) => {
     if (isSubmitting) return;
     setIsSubmitting(true);
     try {
@@ -265,14 +261,10 @@ export default function SalesPosPage() {
           unitPrice: c.unitPrice
         })),
         discount: numericDisc,
-        paymentMethod,
-        paidAmount: actualPaidAmount,
-        cashAmount: paymentMethod === 'Split' 
-          ? Number(splitCashAmount || 0) 
-          : (paymentMethod === 'Cash' ? netTotal : (paymentMethod === 'Credit' ? Number(creditCashAmount || 0) : 0)),
-        upiAmount: paymentMethod === 'Split' 
-          ? Number(splitUpiAmount || 0) 
-          : (paymentMethod === 'UPI' ? netTotal : (paymentMethod === 'Credit' ? Number(creditUpiAmount || 0) : 0))
+        paymentMethod: paymentData.paymentMethod,
+        paidAmount: paymentData.paidAmount,
+        cashAmount: paymentData.cashAmount,
+        upiAmount: paymentData.upiAmount
       };
 
       const res = await API.post('/sales', salePayload);
@@ -281,7 +273,7 @@ export default function SalesPosPage() {
       playSaleSuccessSound();
 
       setGeneratedSale(res.data);
-      setIsConfirmModalOpen(false);
+      setIsPaymentWizardOpen(false);
       setIsSuccessModalOpen(true);
       
       // Clear persistent cart after successful sale
@@ -594,201 +586,28 @@ export default function SalesPosPage() {
               </div>
             </div>
 
-            <div className="pt-2 border-t border-slate-200 dark:border-slate-600 space-y-2">
-              <label className="block text-[10px] font-bold text-slate-400 uppercase">Payment Mode</label>
-              <div className="grid grid-cols-4 gap-1.5">
-                {[
-                  { id: 'Cash', label: '💵 Cash' },
-                  { id: 'UPI', label: '📱 UPI' },
-                  { id: 'Split', label: '🔀 Split' },
-                  { id: 'Credit', label: '📋 Credit' }
-                ].map((mode) => (
-                  <button
-                    key={mode.id}
-                    type="button"
-                    onClick={() => {
-                      setPaymentMethod(mode.id);
-                      if (mode.id === 'Split' && !splitCashAmount && !splitUpiAmount) {
-                        // Default empty for worker to type
-                      }
-                    }}
-                    className={`py-2 px-1 text-center text-xs font-black rounded-xl border transition ${
-                      paymentMethod === mode.id
-                        ? mode.id === 'Split'
-                          ? 'bg-purple-600 text-white border-purple-600 shadow-md shadow-purple-500/20'
-                          : 'bg-pepsi-blue text-white border-pepsi-blue shadow'
-                        : 'bg-white dark:bg-slate-800 text-slate-700 dark:text-slate-300 border-slate-200 dark:border-slate-600 hover:bg-slate-50'
-                    }`}
-                  >
-                    {mode.label}
-                  </button>
-                ))}
-              </div>
-            </div>
-
-            {/* 🔀 SPLIT PAYMENT BREAKDOWN (CASH + UPI) */}
-            {paymentMethod === 'Split' && (
-              <div className="p-3 bg-purple-50/70 dark:bg-purple-950/30 border border-purple-200 dark:border-purple-800/60 rounded-2xl space-y-2.5 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold text-purple-700 dark:text-purple-300 uppercase tracking-wider">
-                    Split Cash + UPI Breakdown
-                  </span>
-                  <span className={`text-[10px] font-black px-2 py-0.5 rounded-full ${
-                    (Number(splitCashAmount || 0) + Number(splitUpiAmount || 0)) >= netTotal
-                      ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-900/60 dark:text-emerald-300'
-                      : 'bg-amber-100 text-amber-800 dark:bg-amber-900/60 dark:text-amber-300'
-                  }`}>
-                    {(Number(splitCashAmount || 0) + Number(splitUpiAmount || 0)) >= netTotal 
-                      ? '✓ Full (₹' + netTotal + ')' 
-                      : `Due: ₹${Math.max(0, netTotal - (Number(splitCashAmount || 0) + Number(splitUpiAmount || 0))).toFixed(0)}`}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-600 dark:text-slate-300 mb-1">
-                      💵 Cash Received (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={splitCashAmount}
-                      onChange={(e) => setSplitCashAmount(e.target.value)}
-                      className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black text-xs focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-600 dark:text-slate-300 mb-1">
-                      📱 UPI / Online (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={splitUpiAmount}
-                      onChange={(e) => setSplitUpiAmount(e.target.value)}
-                      className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black text-xs focus:ring-2 focus:ring-purple-500"
-                    />
-                  </div>
-                </div>
-
-                {/* Quick 1-click Auto-fill helpers */}
-                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 pt-1">
-                  <span>Received: <b className="text-slate-900 dark:text-white">₹{(Number(splitCashAmount || 0) + Number(splitUpiAmount || 0)).toLocaleString()}</b></span>
-                  
-                  {Number(splitCashAmount || 0) > 0 && !splitUpiAmount && Number(splitCashAmount || 0) < netTotal && (
-                    <button
-                      type="button"
-                      onClick={() => setSplitUpiAmount((netTotal - Number(splitCashAmount || 0)).toString())}
-                      className="text-purple-600 dark:text-purple-400 hover:underline font-extrabold text-[10px] bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-purple-200 dark:border-purple-800"
-                    >
-                      + Set UPI ₹{netTotal - Number(splitCashAmount || 0)}
-                    </button>
-                  )}
-
-                  {Number(splitUpiAmount || 0) > 0 && !splitCashAmount && Number(splitUpiAmount || 0) < netTotal && (
-                    <button
-                      type="button"
-                      onClick={() => setSplitCashAmount((netTotal - Number(splitUpiAmount || 0)).toString())}
-                      className="text-purple-600 dark:text-purple-400 hover:underline font-extrabold text-[10px] bg-white dark:bg-slate-800 px-2 py-0.5 rounded-lg border border-purple-200 dark:border-purple-800"
-                    >
-                      + Set Cash ₹{netTotal - Number(splitUpiAmount || 0)}
-                    </button>
-                  )}
-                </div>
-              </div>
-            )}
-
-            {/* 📋 CREDIT PAYMENT (CASH / UPI DEPOSIT + DUE) */}
-            {paymentMethod === 'Credit' && (
-              <div className="p-3 bg-amber-50/80 dark:bg-amber-950/30 border border-amber-200 dark:border-amber-800/60 rounded-2xl space-y-2.5 animate-fade-in">
-                <div className="flex items-center justify-between">
-                  <span className="text-[10px] font-extrabold text-amber-800 dark:text-amber-300 uppercase tracking-wider">
-                    📋 Deposit Paid Today (Optional)
-                  </span>
-                  <span className="text-[10px] font-black px-2 py-0.5 rounded-full bg-amber-100 text-amber-900 dark:bg-amber-900/60 dark:text-amber-200">
-                    Remaining Due: ₹{prospectiveDue.toFixed(0)}
-                  </span>
-                </div>
-
-                <div className="grid grid-cols-2 gap-2">
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-600 dark:text-slate-300 mb-1">
-                      💵 Cash Received (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={creditCashAmount}
-                      onChange={(e) => setCreditCashAmount(e.target.value)}
-                      className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black text-xs focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-
-                  <div>
-                    <label className="block text-[10px] font-extrabold text-slate-600 dark:text-slate-300 mb-1">
-                      📱 UPI Received (₹)
-                    </label>
-                    <input
-                      type="number"
-                      min="0"
-                      placeholder="0"
-                      value={creditUpiAmount}
-                      onChange={(e) => setCreditUpiAmount(e.target.value)}
-                      className="w-full p-2 bg-white dark:bg-slate-800 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black text-xs focus:ring-2 focus:ring-amber-500"
-                    />
-                  </div>
-                </div>
-
-                <div className="flex items-center justify-between text-[11px] font-semibold text-slate-500 pt-0.5">
-                  <span>Paid Today: <b className="text-slate-900 dark:text-white">₹{(Number(creditCashAmount || 0) + Number(creditUpiAmount || 0)).toLocaleString()}</b></span>
-                  
-                  {(Number(creditCashAmount || 0) > 0 || Number(creditUpiAmount || 0) > 0) && (
-                    <button
-                      type="button"
-                      onClick={() => {
-                        setCreditCashAmount('');
-                        setCreditUpiAmount('');
-                      }}
-                      className="text-amber-700 dark:text-amber-400 hover:underline font-extrabold text-[10px]"
-                    >
-                      Clear / 100% Udhaar
-                    </button>
-                  )}
-                </div>
-
-                {isCreditExceeded && (
-                  <div className="p-2.5 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl space-y-1">
-                    <div className="flex items-center space-x-1.5 font-extrabold text-xs">
-                      <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                      <span>Credit Limit Exceeded!</span>
-                    </div>
-                    <p className="text-[11px] leading-tight">
-                      New Due (₹{prospectiveDue.toLocaleString()}) + Current Balance (₹{selectedCustomerObj?.outstandingBalance?.toLocaleString()}) exceeds limit of ₹{selectedCustomerObj?.creditLimit?.toLocaleString()}.
-                    </p>
-                  </div>
-                )}
-              </div>
-            )}
-
+            {/* Big Proceed to Payment Button (Triggers Multi-Step Payment Wizard) */}
             <button
+              type="button"
               onClick={handleProcessSale}
-              disabled={isSubmitting || cart.length === 0 || isCreditExceeded}
-              className="w-full py-3.5 bg-pepsi-blue text-white font-black text-sm rounded-xl shadow-lg hover:bg-blue-700 disabled:opacity-50 transition flex items-center justify-center space-x-2"
+              disabled={isSubmitting || cart.length === 0 || !selectedCustomerId || !selectedVehicleId}
+              className={`w-full py-4 font-black text-sm rounded-2xl transition flex items-center justify-center space-x-2 mt-2 ${
+                cart.length === 0 || !selectedCustomerId || !selectedVehicleId || isSubmitting
+                  ? 'bg-slate-200 dark:bg-slate-800 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-700 shadow-none opacity-60'
+                  : 'bg-gradient-to-r from-[#0051A5] to-blue-600 hover:from-blue-700 hover:to-blue-800 text-white shadow-xl shadow-blue-500/25 active:scale-95 cursor-pointer'
+              }`}
             >
-              {isSubmitting ? (
-                <>
-                  <Loader2 className="w-4 h-4 animate-spin" />
-                  <span>PROCESSING SALE...</span>
-                </>
-              ) : (
-                <>
-                  <CheckCircle className="w-4 h-4" />
-                  <span>COMPLETE SALE & GENERATE INVOICE</span>
-                </>
+              <span>
+                {!selectedVehicleId 
+                  ? 'Select Delivery Van First'
+                  : !selectedCustomerId 
+                  ? 'Select Customer First' 
+                  : cart.length === 0 
+                  ? 'Cart is Empty (Add Items)' 
+                  : `Proceed to Payment (₹${netTotal.toLocaleString()})`}
+              </span>
+              {cart.length > 0 && selectedCustomerId && selectedVehicleId && (
+                <ChevronRight className="w-4 h-4 stroke-[3]" />
               )}
             </button>
           </div>
@@ -817,21 +636,17 @@ export default function SalesPosPage() {
         </div>
       )}
 
-      {/* ⚠️ SALE CONFIRMATION MODAL (PREVENT ACCIDENTAL CLICKS) */}
-      <SaleConfirmModal
-        isOpen={isConfirmModalOpen}
-        onClose={() => setIsConfirmModalOpen(false)}
-        onConfirm={handleConfirmAndExecuteSale}
+      {/* 🚀 MULTI-STEP PAYMENT WIZARD MODAL (Choose Method -> Split / Credit Details -> Confirm) */}
+      <PaymentWizardModal
+        isOpen={isPaymentWizardOpen}
+        onClose={() => setIsPaymentWizardOpen(false)}
+        onConfirmSale={handleExecuteSaleWithData}
         customerName={selectedCustomerObj?.shopName || 'Selected Customer'}
         totalAmount={netTotal}
         totalCases={totalCases}
-        paymentMethod={paymentMethod}
-        cashAmount={paymentMethod === 'Split' 
-          ? Number(splitCashAmount || 0) 
-          : (paymentMethod === 'Cash' ? netTotal : (paymentMethod === 'Credit' ? Number(creditCashAmount || 0) : 0))}
-        upiAmount={paymentMethod === 'Split' 
-          ? Number(splitUpiAmount || 0) 
-          : (paymentMethod === 'UPI' ? netTotal : (paymentMethod === 'Credit' ? Number(creditUpiAmount || 0) : 0))}
+        isCreditExceeded={isCreditExceeded}
+        creditLimit={selectedCustomerObj?.creditLimit || 0}
+        currentDue={selectedCustomerObj?.outstandingBalance || 0}
         isSubmitting={isSubmitting}
       />
 

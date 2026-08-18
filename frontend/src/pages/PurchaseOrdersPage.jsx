@@ -24,7 +24,10 @@ import {
   Search, 
   Calendar, 
   Sparkles,
-  RefreshCw
+  RefreshCw,
+  ShieldCheck,
+  Check,
+  X
 } from 'lucide-react';
 
 export default function PurchaseOrdersPage() {
@@ -36,6 +39,7 @@ export default function PurchaseOrdersPage() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [searchQuery, setSearchQuery] = useState('');
   const [selectedPoForModal, setSelectedPoForModal] = useState(null);
+  const [isSuretyModalOpen, setIsSuretyModalOpen] = useState(false);
 
   // Supplier Management states
   const [isSupplierModalOpen, setIsSupplierModalOpen] = useState(false);
@@ -234,6 +238,27 @@ export default function PurchaseOrdersPage() {
     } finally {
       setIsSubmitting(false);
     }
+  };
+
+  // 🛡️ Initiate PO creation by showing the Surety Confirmation Popup
+  const handleInitiatePoCreation = () => {
+    if (!selectedSupplierId) {
+      toast.warning('Please select a supplier for the purchase order', 'Supplier Required');
+      return;
+    }
+
+    const validItems = orderItems.filter(i => i.product && Number(i.quantity) > 0);
+    if (validItems.length === 0) {
+      toast.warning('Please select at least one item with valid quantity', 'Items Required');
+      return;
+    }
+
+    setIsSuretyModalOpen(true);
+  };
+
+  const handleConfirmExecutePo = async () => {
+    setIsSuretyModalOpen(false);
+    await handleCreatePo(true);
   };
 
   // Open Add Supplier Modal
@@ -625,16 +650,26 @@ export default function PurchaseOrdersPage() {
           <div className="w-full sm:w-auto">
             <button
               type="button"
-              onClick={() => handleCreatePo(true)}
-              disabled={isSubmitting || totalOrderCases === 0}
-              className="w-full sm:w-auto px-5 sm:px-6 py-3 bg-[#0051A5] hover:bg-blue-700 active:scale-95 text-white rounded-xl sm:rounded-2xl font-extrabold text-xs sm:text-sm shadow-lg shadow-blue-500/25 flex items-center justify-center space-x-2 transition disabled:opacity-50 min-h-[44px]"
+              onClick={handleInitiatePoCreation}
+              disabled={isSubmitting || totalOrderCases === 0 || !selectedSupplierId}
+              className={`w-full sm:w-auto px-5 sm:px-6 py-3 font-extrabold text-xs sm:text-sm rounded-xl sm:rounded-2xl flex items-center justify-center space-x-2 transition min-h-[44px] ${
+                isSubmitting || totalOrderCases === 0 || !selectedSupplierId
+                  ? 'bg-slate-200 dark:bg-slate-700 text-slate-400 dark:text-slate-500 cursor-not-allowed border border-slate-300 dark:border-slate-600 shadow-none'
+                  : 'bg-[#0051A5] hover:bg-blue-700 active:scale-95 text-white shadow-lg shadow-blue-500/25 cursor-pointer'
+              }`}
             >
               {isSubmitting ? (
                 <Loader2 className="w-4 h-4 animate-spin" />
               ) : (
                 <MessageSquare className="w-4 h-4" />
               )}
-              <span>{isSubmitting ? 'Generating PO...' : 'Generate & Send Supplier WhatsApp 🚀'}</span>
+              <span>
+                {!selectedSupplierId 
+                  ? 'Select Supplier First' 
+                  : totalOrderCases === 0 
+                  ? 'Add Items to Order' 
+                  : 'Generate & Send Supplier WhatsApp 🚀'}
+              </span>
             </button>
           </div>
         </div>
@@ -989,6 +1024,99 @@ export default function PurchaseOrdersPage() {
         po={selectedPoForModal}
         onPoUpdated={fetchData}
       />
+
+      {/* 🛡️ ULTRA-MINIMAL SURETY CONFIRMATION MODAL FOR PO */}
+      {isSuretyModalOpen && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center p-3 sm:p-4 bg-slate-950/80 backdrop-blur-md animate-fade-in select-none">
+          <div className="bg-white dark:bg-slate-900 rounded-3xl max-w-md w-full shadow-2xl border border-slate-200 dark:border-slate-800 relative overflow-hidden flex flex-col transform transition-all animate-slide-up p-6 text-center space-y-4">
+            
+            {/* Top Pepsi Dual Color Accent Bar */}
+            <div className="absolute top-0 left-0 right-0 h-1.5 flex z-10">
+              <div className="w-1/2 bg-[#0051A5]" />
+              <div className="w-1/2 bg-[#E32934]" />
+            </div>
+
+            {/* Minimal Icon Badge */}
+            <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-[#0051A5] dark:text-blue-400 flex items-center justify-center shadow-inner">
+              <ShieldCheck className="w-8 h-8 stroke-[2.5]" />
+            </div>
+
+            {/* Title & Volume Hero */}
+            <div className="space-y-1">
+              <h3 className="text-lg font-black text-slate-900 dark:text-white">
+                Confirm & Dispatch PO?
+              </h3>
+              <p className="text-xs text-slate-500 dark:text-slate-400 font-semibold truncate max-w-[280px] mx-auto">
+                {suppliers.find(s => s._id === selectedSupplierId)?.name || 'Selected Supplier'}
+                {suppliers.find(s => s._id === selectedSupplierId)?.phone ? ` • Ph: ${suppliers.find(s => s._id === selectedSupplierId).phone}` : ''}
+              </p>
+              <div className="text-3xl font-black text-[#0051A5] dark:text-blue-400 pt-1">
+                {totalOrderCases} Cases
+              </div>
+            </div>
+
+            {/* Minimal Items Breakdown Pill */}
+            <div className="p-3.5 bg-slate-50 dark:bg-slate-800/60 rounded-2xl border border-slate-200 dark:border-slate-700/80 text-xs text-slate-700 dark:text-slate-300 max-h-36 overflow-y-auto space-y-1 text-left">
+              <span className="text-[10px] font-black text-slate-400 uppercase tracking-wider block pb-1 border-b border-slate-200 dark:border-slate-700">
+                Order Items Summary
+              </span>
+              {orderItems.filter(i => i.product && Number(i.quantity) > 0).map((item, idx) => {
+                const prod = products.find(p => p._id === item.product);
+                return (
+                  <div key={idx} className="flex justify-between items-center text-xs font-semibold py-0.5">
+                    <span className="truncate max-w-[200px] text-slate-800 dark:text-slate-200">
+                      {prod?.name || 'Item'} {prod?.size ? `(${prod.size})` : ''}
+                    </span>
+                    <span className="font-black text-[#0051A5] dark:text-blue-400 shrink-0">
+                      {item.quantity} Cases
+                    </span>
+                  </div>
+                );
+              })}
+              {expectedDeliveryDate && (
+                <div className="pt-1.5 border-t border-slate-200 dark:border-slate-700 text-[11px] text-slate-500 font-medium flex justify-between">
+                  <span>Expected Delivery:</span>
+                  <span className="font-bold text-slate-700 dark:text-slate-300">
+                    {new Date(expectedDeliveryDate).toLocaleDateString('en-IN')}
+                  </span>
+                </div>
+              )}
+            </div>
+
+            {/* 2 Action Buttons: Cancel vs Confirm & Send */}
+            <div className="grid grid-cols-2 gap-2.5 pt-1">
+              <button
+                type="button"
+                onClick={() => setIsSuretyModalOpen(false)}
+                disabled={isSubmitting}
+                className="py-3 px-3 bg-slate-100 hover:bg-slate-200 dark:bg-slate-800 dark:hover:bg-slate-700 text-slate-600 dark:text-slate-300 font-black rounded-xl transition active:scale-95 text-xs flex items-center justify-center space-x-1"
+              >
+                <X className="w-3.5 h-3.5" />
+                <span>Cancel</span>
+              </button>
+
+              <button
+                type="button"
+                onClick={handleConfirmExecutePo}
+                disabled={isSubmitting}
+                className="py-3 px-3 bg-[#0051A5] hover:bg-blue-700 disabled:opacity-50 text-white font-black rounded-xl transition shadow-lg shadow-blue-600/25 active:scale-95 text-xs flex items-center justify-center space-x-1.5"
+              >
+                {isSubmitting ? (
+                  <>
+                    <Loader2 className="w-4 h-4 animate-spin" />
+                    <span>Sending...</span>
+                  </>
+                ) : (
+                  <>
+                    <Check className="w-4 h-4 stroke-[3]" />
+                    <span>✓ Confirm & Send PO</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   );
