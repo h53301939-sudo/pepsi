@@ -70,8 +70,22 @@ export const ToastProvider = ({ children }) => {
               <X className="w-4 h-4" />
             </button>
 
+            {/* 🤖 Official "Message from System" Header */}
+            <div className="flex items-center space-x-1.5 px-3 py-1 rounded-full bg-slate-100 dark:bg-slate-800 border border-slate-200 dark:border-slate-700/80 text-[10px] font-black uppercase tracking-widest text-slate-500 dark:text-slate-400 mb-2 shadow-sm">
+              <span className={`w-2 h-2 rounded-full animate-pulse ${
+                activeToast.type === 'success'
+                  ? 'bg-emerald-500'
+                  : activeToast.type === 'error'
+                  ? 'bg-red-500'
+                  : activeToast.type === 'warning'
+                  ? 'bg-amber-500'
+                  : 'bg-blue-500'
+              }`} />
+              <span>Message from System</span>
+            </div>
+
             {/* Hero Icon */}
-            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 mt-1 shadow-lg ${
+            <div className={`w-14 h-14 rounded-2xl flex items-center justify-center mb-3 shadow-lg ${
               activeToast.type === 'success'
                 ? 'bg-emerald-100 dark:bg-emerald-950/60 text-emerald-600 dark:text-emerald-400 shadow-emerald-500/20'
                 : activeToast.type === 'error'

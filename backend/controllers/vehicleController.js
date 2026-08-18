@@ -1,5 +1,6 @@
 const Vehicle = require('../models/Vehicle');
 const VehicleStock = require('../models/VehicleStock');
+const StockTransaction = require('../models/StockTransaction');
 const User = require('../models/User');
 const { logActivity } = require('../utils/logActivity');
 
@@ -8,7 +9,7 @@ const { logActivity } = require('../utils/logActivity');
 const getVehicles = async (req, res) => {
   const vehicles = await Vehicle.find().populate('assignedWorker', 'name phone email').sort({ vehicleNumber: 1 });
   
-  // Attach stock summary to each vehicle
+  // Attach stock summary and loading age to each vehicle
   const result = await Promise.all(
     vehicles.map(async (v) => {
       const vStocks = await VehicleStock.find({ vehicle: v._id, quantity: { $gt: 0 } }).populate('product');
@@ -16,12 +17,28 @@ const getVehicles = async (req, res) => {
       const totalCases = validStocks.reduce((acc, curr) => acc + Number(curr.quantity || 0), 0);
       const totalValue = validStocks.reduce((acc, curr) => acc + (Number(curr.quantity || 0) * Number(curr.product?.sellingPrice || 0)), 0);
       
+      // Check last loading transaction timestamp
+      const lastTx = await StockTransaction.findOne({ 
+        destId: v._id, 
+        transactionType: 'Warehouse_To_Vehicle' 
+      }).sort({ createdAt: -1 });
+
+      const lastLoadedAt = lastTx?.createdAt || (validStocks[0]?.updatedAt || null);
+      const hoursSinceLastLoad = (lastLoadedAt && totalCases > 0)
+        ? (Date.now() - new Date(lastLoadedAt).getTime()) / (1000 * 60 * 60)
+        : 0;
+      
+      const isStaleStock = totalCases > 0 && hoursSinceLastLoad >= 12;
+
       return {
         ...v.toObject(),
         loadedStockItemsCount: validStocks.length,
         totalStockUnits: totalCases, // Cases
         totalStockValue: totalValue,
-        stockItems: validStocks
+        stockItems: validStocks,
+        lastLoadedAt,
+        hoursSinceLastLoad: Math.round(hoursSinceLastLoad * 10) / 10,
+        isStaleStock
       };
     })
   );

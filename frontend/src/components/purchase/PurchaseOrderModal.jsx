@@ -105,9 +105,14 @@ export default function PurchaseOrderModal({ isOpen, onClose, po, onPoUpdated })
         {/* 🛡️ INLINE WHATSAPP SURETY CONFIRMATION PROMPT */}
         {showWaConfirm && (
           <div className="p-3 bg-emerald-50 dark:bg-emerald-950/40 border border-emerald-200 dark:border-emerald-800 rounded-xl flex items-center justify-between text-xs animate-slide-up">
-            <span className="font-bold text-emerald-900 dark:text-emerald-200 truncate mr-2">
-              Send PO PDF to <strong>+{po.supplierPhone || po.supplier?.phone || 'Supplier'}</strong> via WhatsApp?
-            </span>
+            <div className="flex items-center space-x-2 truncate mr-2">
+              <span className="px-2 py-0.5 rounded-md bg-emerald-100 dark:bg-emerald-900/80 text-emerald-800 dark:text-emerald-300 font-black text-[9px] uppercase tracking-wider shrink-0 border border-emerald-200 dark:border-emerald-700">
+                Message from System
+              </span>
+              <span className="font-bold text-emerald-900 dark:text-emerald-200 truncate">
+                Send PO PDF to <strong>+{po.supplierPhone || po.supplier?.phone || 'Supplier'}</strong> via WhatsApp?
+              </span>
+            </div>
             <div className="flex items-center space-x-1.5 shrink-0">
               <button
                 type="button"

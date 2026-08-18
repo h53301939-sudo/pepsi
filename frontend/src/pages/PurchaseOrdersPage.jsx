@@ -1036,6 +1036,14 @@ export default function PurchaseOrdersPage() {
               <div className="w-1/2 bg-[#E32934]" />
             </div>
 
+            {/* Top "Message from System" Pill Badge */}
+            <div className="flex items-center justify-center pt-1">
+              <span className="inline-flex items-center space-x-1.5 px-3 py-1 rounded-full bg-blue-50 dark:bg-blue-950/80 border border-blue-200 dark:border-blue-800/80 text-[10px] font-black uppercase tracking-widest text-[#0051A5] dark:text-blue-300 shadow-sm">
+                <span className="w-1.5 h-1.5 rounded-full bg-blue-500 animate-pulse" />
+                <span>Message from System</span>
+              </span>
+            </div>
+
             {/* Minimal Icon Badge */}
             <div className="w-14 h-14 mx-auto rounded-2xl bg-blue-100 dark:bg-blue-950/60 text-[#0051A5] dark:text-blue-400 flex items-center justify-center shadow-inner">
               <ShieldCheck className="w-8 h-8 stroke-[2.5]" />
