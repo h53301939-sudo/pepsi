@@ -18,7 +18,7 @@ router.post('/login', loginRateLimiter, loginUser);
 
 router.get('/me', protect, getMe);
 router.get('/workers', protect, admin, getWorkers);
-router.get('/workers/:id/profile', protect, admin, getWorkerProfile);
+router.get('/workers/:id/profile', protect, getWorkerProfile);
 router.put('/workers/:id/toggle-status', protect, admin, toggleWorkerStatus);
 router.post('/workers', protect, admin, createWorker);
 router.put('/workers/:id', protect, admin, updateWorker);

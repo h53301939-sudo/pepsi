@@ -60,6 +60,7 @@ export default function CustomerDetailsModal({ isOpen, onClose, customerId, init
   };
   const sales = (isDataForThisCustomer ? details.sales : []) || [];
   const payments = (isDataForThisCustomer ? details.payments : []) || [];
+  const dueAdjustments = (isDataForThisCustomer ? (details.dueAdjustments || customer.dueAdjustments) : (initialCustomer?.dueAdjustments || [])) || [];
 
   return (
     <Modal
@@ -146,7 +147,7 @@ export default function CustomerDetailsModal({ isOpen, onClose, customerId, init
             <h4 className={`text-lg font-black mt-0.5 ${customer.outstandingBalance > 0 ? 'text-red-600 dark:text-red-400' : 'text-emerald-600'}`}>
               ₹{customer.outstandingBalance?.toLocaleString() || 0}
             </h4>
-            <p className="text-[10px] text-slate-400">Credit Limit: ₹{customer.creditLimit?.toLocaleString() || 50000}</p>
+            <p className="text-[10px] text-slate-400">Credit Limit: ₹{customer.creditLimit?.toLocaleString() || 5000}</p>
           </div>
         </div>
 
@@ -175,6 +176,18 @@ export default function CustomerDetailsModal({ isOpen, onClose, customerId, init
             >
               <DollarSign className="w-4 h-4" />
               <span>Direct Payment Receipts ({payments.length})</span>
+            </button>
+
+            <button
+              onClick={() => setActiveTab('adjustments')}
+              className={`pb-2.5 px-4 font-bold text-xs border-b-2 transition flex items-center space-x-1.5 ${
+                activeTab === 'adjustments'
+                  ? 'border-amber-500 text-amber-600 dark:text-amber-400'
+                  : 'border-transparent text-slate-500 hover:text-slate-800 dark:hover:text-white'
+              }`}
+            >
+              <CreditCard className="w-4 h-4" />
+              <span>Manual Dues & Adjustments ({dueAdjustments.length})</span>
             </button>
           </div>
 
@@ -295,6 +308,39 @@ export default function CustomerDetailsModal({ isOpen, onClose, customerId, init
                           </div>
                           <p className="text-[11px] text-slate-400">
                             Collected on {new Date(p.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} by {p.receivedBy?.name || 'Staff'}
+                          </p>
+                        </div>
+                      </div>
+                    ))
+                  )}
+                </div>
+              )}
+
+              {/* TAB 3: MANUAL DUE ADJUSTMENTS */}
+              {activeTab === 'adjustments' && (
+                <div className="space-y-3 max-h-96 overflow-y-auto pr-1">
+                  {dueAdjustments.length === 0 ? (
+                    <div className="p-8 text-center bg-slate-50 dark:bg-slate-800 rounded-2xl border border-dashed border-slate-200 dark:border-slate-700">
+                      <CreditCard className="w-8 h-8 mx-auto text-slate-400 mb-2" />
+                      <p className="text-xs font-bold text-slate-500">No manual due or opening balance adjustments recorded for this customer.</p>
+                    </div>
+                  ) : (
+                    dueAdjustments.map((adj, idx) => (
+                      <div
+                        key={idx}
+                        className="p-3.5 bg-white dark:bg-slate-800 rounded-xl border border-slate-200 dark:border-slate-700 flex items-center justify-between text-xs shadow-sm"
+                      >
+                        <div className="space-y-0.5">
+                          <div className="flex items-center space-x-2">
+                            <span className="font-extrabold text-amber-600 dark:text-amber-400 text-sm">
+                              +₹{adj.amount?.toLocaleString()} Due Added
+                            </span>
+                            <span className="px-2 py-0.5 bg-amber-100 dark:bg-amber-900/40 text-amber-800 dark:text-amber-300 rounded font-bold text-[10px]">
+                              {adj.reason || 'Manual Adjustment'}
+                            </span>
+                          </div>
+                          <p className="text-[11px] text-slate-400">
+                            Added on {new Date(adj.createdAt).toLocaleDateString('en-IN', { day: '2-digit', month: 'short', year: 'numeric', hour: '2-digit', minute: '2-digit' })} • Prev: ₹{adj.previousBalance?.toLocaleString() || 0} &rarr; New Due: ₹{adj.newBalance?.toLocaleString() || adj.amount?.toLocaleString()}
                           </p>
                         </div>
                       </div>

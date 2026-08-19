@@ -117,11 +117,85 @@ const getMe = async (req, res) => {
   res.json(user);
 };
 
-// @desc    Get all workers
+const Sale = require('../models/Sale');
+const Payment = require('../models/Payment');
+
+// @desc    Get all workers with today's shift collections summary
 // @route   GET /api/auth/workers
 const getWorkers = async (req, res) => {
   const workers = await User.find({ role: 'worker' }).select('-password').populate('assignedVehicle');
-  res.json(workers);
+
+  // Compute Today's Date bounds (local midnight)
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  const workersWithSummary = await Promise.all(
+    workers.map(async (w) => {
+      const wObj = w.toObject();
+
+      // Today's Sales strictly billed by this worker
+      const todaySales = await Sale.find({
+        worker: w._id,
+        createdAt: { $gte: todayStart, $lte: todayEnd }
+      });
+
+      // Today's Credit / Udhaar Collections
+      const todayCollections = await Payment.find({
+        receivedBy: w._id,
+        createdAt: { $gte: todayStart, $lte: todayEnd }
+      });
+
+      let todaySalesGross = 0;
+      let todayCases = 0;
+      let todaySalesCash = 0;
+      let todaySalesUpi = 0;
+      let todayCreditGiven = 0;
+
+      todaySales.forEach((s) => {
+        const netAmt = Number(s.netTotal !== undefined ? s.netTotal : ((Number(s.paidAmount || 0) + Number(s.dueAmount || 0)) || s.subTotal || 0));
+        todaySalesGross += netAmt;
+        (s.items || []).forEach(item => {
+          todayCases += Number(item.quantity || 0);
+        });
+        todaySalesCash += Number(s.cashAmount || (s.paymentMethod === 'Cash' ? (s.paidAmount || netAmt) : 0) || 0);
+        todaySalesUpi += Number(s.upiAmount || (s.paymentMethod === 'UPI' ? (s.paidAmount || netAmt) : 0) || 0);
+        todayCreditGiven += Number(s.dueAmount || 0);
+      });
+
+      let todayCreditCollectedCash = 0;
+      let todayCreditCollectedUpi = 0;
+      let todayCreditCollectedTotal = 0;
+
+      todayCollections.forEach((p) => {
+        todayCreditCollectedCash += Number(p.cashAmount || (p.paymentMethod === 'Cash' ? p.amount : 0) || 0);
+        todayCreditCollectedUpi += Number(p.upiAmount || (p.paymentMethod === 'UPI' ? p.amount : 0) || 0);
+        todayCreditCollectedTotal += Number(p.amount || 0);
+      });
+
+      const todayCashInHand = todaySalesCash + todayCreditCollectedCash;
+      const todayUpiDirect = todaySalesUpi + todayCreditCollectedUpi;
+      const todayTotalCollected = todayCashInHand + todayUpiDirect;
+
+      wObj.todayShiftSummary = {
+        todaySalesGross,
+        todayCases,
+        todayCashInHand,
+        todayUpiDirect,
+        todayCreditCollectedCash,
+        todayCreditCollectedUpi,
+        todayCreditCollectedTotal,
+        todayCreditGiven,
+        todayTotalCollected,
+        salesCount: todaySales.length,
+        collectionsCount: todayCollections.length
+      };
+
+      return wObj;
+    })
+  );
+
+  res.json(workersWithSummary);
 };
 
 // @desc    Create new worker
@@ -195,9 +269,7 @@ const updateWorker = async (req, res) => {
   res.json(updatedWorker);
 };
 
-const Sale = require('../models/Sale');
-
-// @desc    Get detailed worker profile with lifetime analytics (sales, profit, cases, recent history)
+// @desc    Get detailed worker profile with lifetime analytics & credit collections
 // @route   GET /api/auth/workers/:id/profile
 const getWorkerProfile = async (req, res) => {
   const worker = await User.findById(req.params.id).select('-password').populate('assignedVehicle');
@@ -206,18 +278,53 @@ const getWorkerProfile = async (req, res) => {
     return res.status(404).json({ message: 'Worker not found' });
   }
 
-  // Fetch all sales made by this worker
+  // Authorization: Only Admin or the worker themselves can view profile
+  if (req.user.role !== 'admin' && req.user._id.toString() !== req.params.id.toString()) {
+    return res.status(403).json({ message: 'Not authorized to view this worker profile' });
+  }
+
+  // Compute Today's Date bounds (local midnight)
+  const now = new Date();
+  const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
+  const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
+
+  // Fetch all sales made strictly by this worker
   const sales = await Sale.find({ worker: worker._id })
     .populate('customer', 'shopName ownerName phone address')
     .populate('items.product', 'name purchasePrice costPrice size currentStock')
     .sort({ createdAt: -1 });
 
+  // Fetch all credit payments collected by this worker
+  const payments = await Payment.find({ receivedBy: worker._id })
+    .populate('customer', 'shopName ownerName phone address')
+    .sort({ createdAt: -1 });
+
   let lifetimeSales = 0;
   let lifetimeProfit = 0;
   let totalCasesSold = 0;
+  let lifetimeSalesCash = 0;
+  let lifetimeSalesUpi = 0;
+  let lifetimeCreditGiven = 0;
+
+  let todaySalesTotal = 0;
+  let todayProfitTotal = 0;
+  let todayCasesSold = 0;
+  let todaySalesCash = 0;
+  let todaySalesUpi = 0;
+  let todayCreditGiven = 0;
+  const todaySalesList = [];
 
   sales.forEach((sale) => {
-    lifetimeSales += (sale.netTotal || 0);
+    const netAmt = Number(sale.netTotal || 0);
+    lifetimeSales += netAmt;
+
+    const sCash = Number(sale.cashAmount || (sale.paymentMethod === 'Cash' ? sale.paidAmount : 0) || 0);
+    const sUpi = Number(sale.upiAmount || (sale.paymentMethod === 'UPI' ? sale.paidAmount : 0) || 0);
+    const sDue = Number(sale.dueAmount || 0);
+
+    lifetimeSalesCash += sCash;
+    lifetimeSalesUpi += sUpi;
+    lifetimeCreditGiven += sDue;
 
     let saleCost = 0;
     (sale.items || []).forEach((item) => {
@@ -227,24 +334,94 @@ const getWorkerProfile = async (req, res) => {
       saleCost += (qty * unitCost);
     });
 
-    const saleProfit = (sale.netTotal || 0) - saleCost;
+    const saleProfit = netAmt - saleCost;
     lifetimeProfit += saleProfit;
+
+    const saleDate = new Date(sale.createdAt);
+    if (saleDate >= todayStart && saleDate <= todayEnd) {
+      todaySalesTotal += netAmt;
+      todayProfitTotal += saleProfit;
+      todayCasesSold += (sale.items || []).reduce((sum, it) => sum + (it.quantity || 0), 0);
+      todaySalesCash += sCash;
+      todaySalesUpi += sUpi;
+      todayCreditGiven += sDue;
+      todaySalesList.push(sale);
+    }
   });
 
-  const totalInvoices = sales.length;
-  const recentSales = sales.slice(0, 25);
+  let lifetimeCreditCollectedCash = 0;
+  let lifetimeCreditCollectedUpi = 0;
+  let lifetimeCreditCollectedTotal = 0;
+
+  let todayCreditCollectedCash = 0;
+  let todayCreditCollectedUpi = 0;
+  let todayCreditCollectedTotal = 0;
+  const todayCollectionsList = [];
+
+  payments.forEach((p) => {
+    const pAmt = Number(p.amount || 0);
+    const pCash = Number(p.cashAmount || (p.paymentMethod === 'Cash' ? pAmt : 0) || 0);
+    const pUpi = Number(p.upiAmount || (p.paymentMethod === 'UPI' ? pAmt : 0) || 0);
+
+    lifetimeCreditCollectedCash += pCash;
+    lifetimeCreditCollectedUpi += pUpi;
+    lifetimeCreditCollectedTotal += pAmt;
+
+    const pDate = new Date(p.createdAt);
+    if (pDate >= todayStart && pDate <= todayEnd) {
+      todayCreditCollectedCash += pCash;
+      todayCreditCollectedUpi += pUpi;
+      todayCreditCollectedTotal += pAmt;
+      todayCollectionsList.push(p);
+    }
+  });
+
+  const todayCashInHand = todaySalesCash + todayCreditCollectedCash;
+  const todayUpiDirect = todaySalesUpi + todayCreditCollectedUpi;
+  const todayTotalCollected = todayCashInHand + todayUpiDirect;
+
+  const lifetimeCashCollected = lifetimeSalesCash + lifetimeCreditCollectedCash;
+  const lifetimeUpiCollected = lifetimeSalesUpi + lifetimeCreditCollectedUpi;
+  const lifetimeTotalCollected = lifetimeCashCollected + lifetimeUpiCollected;
 
   res.json({
     worker,
-    analytics: {
-      lifetimeSales,
-      lifetimeProfit,
-      totalCasesSold,
-      totalInvoices,
-      averageOrderValue: totalInvoices > 0 ? Math.round(lifetimeSales / totalInvoices) : 0,
+    todayAnalytics: {
+      sales: todaySalesTotal,
+      profit: todayProfitTotal,
+      cases: todayCasesSold,
+      invoicesCount: todaySalesList.length,
+      cashInHand: todayCashInHand,
+      salesCash: todaySalesCash,
+      creditCash: todayCreditCollectedCash,
+      upiDirect: todayUpiDirect,
+      salesUpi: todaySalesUpi,
+      creditUpi: todayCreditCollectedUpi,
+      creditRecovered: todayCreditCollectedTotal,
+      creditGiven: todayCreditGiven,
+      totalCollected: todayTotalCollected,
+      collectionsCount: todayCollectionsList.length
+    },
+    lifetimeAnalytics: {
+      sales: lifetimeSales,
+      salesCash: lifetimeSalesCash,
+      salesUpi: lifetimeSalesUpi,
+      profit: lifetimeProfit,
+      cases: totalCasesSold,
+      invoicesCount: sales.length,
+      cashCollected: lifetimeCashCollected,
+      upiCollected: lifetimeUpiCollected,
+      creditRecovered: lifetimeCreditCollectedTotal,
+      creditGiven: lifetimeCreditGiven,
+      totalCollected: lifetimeTotalCollected,
+      collectionsCount: payments.length,
+      averageOrderValue: sales.length > 0 ? Math.round(lifetimeSales / sales.length) : 0,
       profitMargin: lifetimeSales > 0 ? ((lifetimeProfit / lifetimeSales) * 100).toFixed(1) : '0'
     },
-    recentSales
+    todaySales: todaySalesList,
+    allSales: sales,
+    todayCollections: todayCollectionsList,
+    allCollections: payments
   });
 };
 

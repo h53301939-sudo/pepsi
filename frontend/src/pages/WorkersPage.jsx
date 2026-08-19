@@ -12,7 +12,10 @@ import {
   Truck, 
   Phone, 
   Mail, 
-  BarChart2 
+  BarChart2,
+  Banknote,
+  CreditCard,
+  DollarSign
 } from 'lucide-react';
 
 export default function WorkersPage() {
@@ -229,14 +232,48 @@ export default function WorkersPage() {
                 </span>
               </div>
 
+              {/* 📊 TODAY'S ROUTE PERFORMANCE & SETTLEMENT STRIP */}
+              <div className="bg-slate-50 dark:bg-slate-900/60 p-3 rounded-xl border border-slate-100 dark:border-slate-700/60 space-y-2">
+                
+                {/* 🛒 Sales Performance (Primary) */}
+                <div className="flex items-center justify-between">
+                  <span className="text-[11px] font-extrabold uppercase tracking-wider text-slate-500">Today's Sales:</span>
+                  <div className="text-right">
+                    <span className="text-sm font-black text-[#0051A5] dark:text-blue-400 block leading-tight">
+                      ₹{Number(w.todayShiftSummary?.todaySalesGross || 0).toLocaleString('en-IN')}
+                    </span>
+                    <span className="text-[10px] text-slate-400 font-semibold">
+                      {w.todayShiftSummary?.todayCases || 0} Cases • {w.todayShiftSummary?.salesCount || 0} Orders
+                    </span>
+                  </div>
+                </div>
+
+                {/* 💵 Compact Cash & UPI Settlement Strip */}
+                <div className="grid grid-cols-2 gap-2 text-xs pt-1 border-t border-slate-200/60 dark:border-slate-700/60">
+                  <div className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-2 rounded-lg">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">💵 Cash In-Hand:</span>
+                    <span className="text-xs font-black text-emerald-600 dark:text-emerald-400">
+                      ₹{Number(w.todayShiftSummary?.todayCashInHand || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
+                  <div className="bg-white dark:bg-slate-800 border border-slate-200/80 dark:border-slate-700 p-2 rounded-lg">
+                    <span className="text-[10px] font-bold text-slate-500 dark:text-slate-400 block">📱 UPI Direct:</span>
+                    <span className="text-xs font-black text-blue-600 dark:text-blue-400">
+                      ₹{Number(w.todayShiftSummary?.todayUpiDirect || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
               {/* Bottom Card Action: View Profile & Analytics */}
-              <div className="pt-2 border-t border-slate-100 dark:border-slate-700">
+              <div className="pt-1">
                 <button
                   onClick={() => setSelectedProfileWorkerId(w._id)}
-                  className="w-full py-2.5 px-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[#002B7F] dark:text-blue-300 rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition shadow-sm active:scale-[0.99]"
+                  className="w-full py-2.5 px-3 bg-blue-50 dark:bg-blue-950/40 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[#002B7F] dark:text-blue-300 rounded-xl font-bold text-xs flex items-center justify-center space-x-1.5 transition shadow-sm active:scale-[0.99] cursor-pointer"
                 >
                   <BarChart2 className="w-4 h-4" />
-                  <span>View Profile & Lifetime Analytics</span>
+                  <span>View Sales, Invoices & Cash Profile</span>
                 </button>
               </div>
 

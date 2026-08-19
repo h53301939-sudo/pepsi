@@ -115,6 +115,11 @@ export default function PaymentWizardModal({
   const credUpiNum = Number(creditUpi || 0);
   const credPaidTotal = credCashNum + credUpiNum;
   const prospectiveDue = Math.max(0, totalNum - credPaidTotal);
+  const resolvedCreditLimit = Number(creditLimit || 5000);
+  const dynamicCreditExceeded = (Number(currentDue || 0) + prospectiveDue) > resolvedCreditLimit;
+  const effectiveCreditExceeded = isCreditExceeded || dynamicCreditExceeded;
+  const availableCredit = Math.max(0, resolvedCreditLimit - Number(currentDue || 0));
+  const requiredUpfrontPayment = Math.max(0, prospectiveDue - availableCredit);
 
   // Quick preset chips calculation for Split mode
   const generateQuickChips = () => {
@@ -592,15 +597,20 @@ export default function PaymentWizardModal({
             </div>
 
             {/* Credit Limit Alert if Exceeded */}
-            {isCreditExceeded && (
-              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl space-y-1 text-xs">
+            {effectiveCreditExceeded && (
+              <div className="p-3 bg-red-500/10 border border-red-500/30 text-red-500 rounded-xl space-y-1 text-xs animate-shake">
                 <div className="flex items-center space-x-1.5 font-black">
                   <AlertTriangle className="w-4 h-4 flex-shrink-0" />
-                  <span>Credit Limit Exceeded!</span>
+                  <span>⛔ Credit Limit Exceeded!</span>
                 </div>
                 <p className="text-[11px] leading-tight font-medium">
-                  New Due (₹{prospectiveDue.toLocaleString()}) + Current Balance (₹{currentDue.toLocaleString()}) exceeds limit of ₹{creditLimit.toLocaleString()}.
+                  Requested Due (₹{prospectiveDue.toLocaleString()}) + Current Balance (₹{currentDue.toLocaleString()}) = ₹{(Number(currentDue || 0) + prospectiveDue).toLocaleString()} (Limit: ₹{resolvedCreditLimit.toLocaleString()}).
                 </p>
+                {requiredUpfrontPayment > 0 && (
+                  <p className="text-[11px] font-bold text-amber-600 dark:text-amber-400 pt-0.5">
+                    💡 Please collect at least <strong>₹{requiredUpfrontPayment.toLocaleString()}</strong> in Cash or UPI above to allow this sale on credit.
+                  </p>
+                )}
               </div>
             )}
 
@@ -609,8 +619,8 @@ export default function PaymentWizardModal({
               <button
                 type="button"
                 onClick={() => initiateSurety('Credit', credCashNum, credUpiNum, credPaidTotal, 'credit_details')}
-                disabled={isSubmitting || isCreditExceeded}
-                className="w-full py-3.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-50 text-white font-black rounded-2xl transition shadow-lg shadow-amber-600/25 active:scale-95 text-sm flex items-center justify-center space-x-2"
+                disabled={isSubmitting || effectiveCreditExceeded}
+                className="w-full py-3.5 px-4 bg-amber-600 hover:bg-amber-700 disabled:opacity-40 disabled:cursor-not-allowed text-white font-black rounded-2xl transition shadow-lg shadow-amber-600/25 active:scale-95 text-sm flex items-center justify-center space-x-2 cursor-pointer"
               >
                 <span>Review & Confirm Credit</span>
                 <ChevronRight className="w-4 h-4 stroke-[3]" />

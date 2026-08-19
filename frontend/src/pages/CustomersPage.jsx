@@ -4,11 +4,16 @@ import LoadingSkeleton from '../components/common/LoadingSkeleton';
 import Modal from '../components/common/Modal';
 import InvoiceModal from '../components/invoice/InvoiceModal';
 import CustomerDetailsModal from '../components/customer/CustomerDetailsModal';
+import CollectionPaymentModal from '../components/customer/CollectionPaymentModal';
+import ManualDueModal from '../components/customer/ManualDueModal';
 import CustomerAvatar from '../components/common/CustomerAvatar';
+import { useAuth } from '../context/AuthContext';
 import { useToast } from '../context/ToastContext';
+import { playSaleSuccessSound } from '../utils/audio';
 import {
   Users,
   Plus,
+  PlusCircle,
   CreditCard,
   DollarSign,
   Search,
@@ -22,10 +27,13 @@ import {
   Eye,
   Phone,
   MapPin,
-  Receipt
+  Receipt,
+  Lock
 } from 'lucide-react';
 
 export default function CustomersPage() {
+  const { user } = useAuth();
+  const isAdmin = user?.role === 'admin';
   const { toast } = useToast();
   const [customers, setCustomers] = useState([]);
   const [loading, setLoading] = useState(true);
@@ -44,6 +52,11 @@ export default function CustomersPage() {
   const [paymentMethod, setPaymentMethod] = useState('Cash');
   const [isPaymentSubmitting, setIsPaymentSubmitting] = useState(false);
 
+  // Manual Due Modal State
+  const [selectedCustForDue, setSelectedCustForDue] = useState(null);
+  const [isManualDueModalOpen, setIsManualDueModalOpen] = useState(false);
+  const [isManualDueSubmitting, setIsManualDueSubmitting] = useState(false);
+
   // Edit / Add Customer Modal State
   const [isCustModalOpen, setIsCustModalOpen] = useState(false);
   const [editingCust, setEditingCust] = useState(null);
@@ -54,7 +67,8 @@ export default function CustomersPage() {
     phone: '',
     address: '',
     creditLimit: '5000',
-    discountPercentage: '0'
+    discountPercentage: '0',
+    openingBalance: '0'
   });
   const [formError, setFormError] = useState('');
 
@@ -88,26 +102,61 @@ export default function CustomersPage() {
   // Handle Payment Modal
   const handleOpenPayment = (cust) => {
     setSelectedCust(cust);
-    setPaymentAmount('');
     setIsPaymentModalOpen(true);
   };
 
-  const handlePaymentSubmit = async (e) => {
-    e.preventDefault();
+  const handleConfirmCollection = async (collectionData) => {
     if (isPaymentSubmitting) return; // LOCK AGAINST DOUBLE CLICKING
     setIsPaymentSubmitting(true);
     try {
       await API.post(`/customers/${selectedCust._id}/payments`, {
-        amount: Number(paymentAmount),
-        paymentMethod
+        amount: Number(collectionData.amount),
+        paymentMethod: collectionData.paymentMethod,
+        cashAmount: Number(collectionData.cashAmount || 0),
+        upiAmount: Number(collectionData.upiAmount || 0),
+        remarks: collectionData.remarks || ''
       });
-      toast.success(`Payment of ₹${Number(paymentAmount).toLocaleString('en-IN')} recorded for ${selectedCust.shopName}! 💰`, 'Payment Recorded');
+      playSaleSuccessSound();
+      toast.success(
+        `Payment of ₹${Number(collectionData.amount).toLocaleString('en-IN')} (${collectionData.paymentMethod}) recorded for ${selectedCust.shopName}! 💰`,
+        'Payment Recorded'
+      );
       setIsPaymentModalOpen(false);
+      setSelectedCust(null);
       fetchCustomers();
     } catch (err) {
       toast.error(err.response?.data?.message || 'Failed to record payment', 'Payment Failed');
     } finally {
       setIsPaymentSubmitting(false);
+    }
+  };
+
+  // Handle Manual Due Addition Modal
+  const handleOpenManualDue = (cust) => {
+    setSelectedCustForDue(cust);
+    setIsManualDueModalOpen(true);
+  };
+
+  const handleConfirmManualDue = async ({ amount, reason }) => {
+    if (isManualDueSubmitting) return; // LOCK AGAINST DOUBLE CLICKING
+    setIsManualDueSubmitting(true);
+    try {
+      await API.post(`/customers/${selectedCustForDue._id}/manual-due`, {
+        amount: Number(amount),
+        reason
+      });
+      playSaleSuccessSound();
+      toast.success(
+        `Added manual due of ₹${Number(amount).toLocaleString('en-IN')} to ${selectedCustForDue.shopName}! 📝`,
+        'Due Added'
+      );
+      setIsManualDueModalOpen(false);
+      setSelectedCustForDue(null);
+      fetchCustomers();
+    } catch (err) {
+      toast.error(err.response?.data?.message || 'Failed to add manual due', 'Error');
+    } finally {
+      setIsManualDueSubmitting(false);
     }
   };
 
@@ -121,7 +170,8 @@ export default function CustomersPage() {
       phone: '',
       address: '',
       creditLimit: 5000,
-      discountPercentage: 0
+      discountPercentage: 0,
+      openingBalance: 0
     });
     setIsCustModalOpen(true);
   };
@@ -135,7 +185,8 @@ export default function CustomersPage() {
       phone: c.phone || '',
       address: c.address || '',
       creditLimit: c.creditLimit || 5000,
-      discountPercentage: c.discountPercentage || 0
+      discountPercentage: c.discountPercentage || 0,
+      openingBalance: 0
     });
     setIsCustModalOpen(true);
   };
@@ -153,9 +204,15 @@ export default function CustomersPage() {
     setIsSubmitting(true);
     try {
       const payload = {
-        ...custForm,
-        creditLimit: Number(custForm.creditLimit || 5000),
-        discountPercentage: Number(custForm.discountPercentage || 0)
+        shopName: custForm.shopName,
+        ownerName: custForm.ownerName,
+        phone: custForm.phone,
+        address: custForm.address,
+        ...(isAdmin && {
+          creditLimit: Number(custForm.creditLimit || 5000),
+          discountPercentage: Number(custForm.discountPercentage || 0),
+          openingBalance: Number(custForm.openingBalance || 0)
+        })
       };
 
       if (editingCust) {
@@ -265,6 +322,13 @@ export default function CustomersPage() {
                     <Eye className="w-3.5 h-3.5" />
                   </button>
                   <button
+                    onClick={() => handleOpenManualDue(c)}
+                    className="p-1.5 rounded-lg bg-amber-50 dark:bg-amber-950/40 text-amber-600 dark:text-amber-400 hover:bg-amber-100 transition"
+                    title="Add Manual Due / Past Balance"
+                  >
+                    <PlusCircle className="w-3.5 h-3.5" />
+                  </button>
+                  <button
                     onClick={() => handleOpenEditCustomer(c)}
                     className="p-1.5 rounded-lg bg-slate-100 dark:bg-slate-700 text-slate-600 dark:text-slate-300 hover:bg-slate-200 transition"
                     title="Edit Customer & Discount"
@@ -296,7 +360,16 @@ export default function CustomersPage() {
                 </span>
               </div>
               <div className="flex justify-between items-center">
-                <span className="text-slate-500 font-medium">Outstanding Due:</span>
+                <div className="flex items-center space-x-1.5">
+                  <span className="text-slate-500 font-medium">Outstanding Due:</span>
+                  <button
+                    onClick={() => handleOpenManualDue(c)}
+                    className="text-[10px] font-black text-amber-600 dark:text-amber-400 hover:underline flex items-center space-x-0.5 cursor-pointer"
+                    title="Add Manual Due / Past Udhaar"
+                  >
+                    <span>+ Add Due</span>
+                  </button>
+                </div>
                 <span className={`font-black ${c.outstandingBalance > 0 ? 'text-red-600 text-sm' : 'text-emerald-600 text-sm'}`}>
                   ₹{c.outstandingBalance?.toLocaleString()}
                 </span>
@@ -342,54 +415,29 @@ export default function CustomersPage() {
         sale={activeInvoice}
       />
 
-      {/* Collect Payment Modal */}
-      <Modal isOpen={isPaymentModalOpen} onClose={() => setIsPaymentModalOpen(false)} title={`Collect Payment - ${selectedCust?.shopName}`}>
-        <form onSubmit={handlePaymentSubmit} className="space-y-4 text-xs">
-          <p className="text-slate-500">
-            Current Outstanding Balance: <span className="font-bold text-red-500">₹{selectedCust?.outstandingBalance}</span>
-          </p>
+      {/* 💳 SIGNATURE PAYMENT COLLECTION WIZARD MODAL (NO CREDIT OPTION) */}
+      <CollectionPaymentModal
+        isOpen={isPaymentModalOpen}
+        onClose={() => {
+          setIsPaymentModalOpen(false);
+          setSelectedCust(null);
+        }}
+        onConfirmCollection={handleConfirmCollection}
+        customer={selectedCust}
+        isSubmitting={isPaymentSubmitting}
+      />
 
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Amount (₹)</label>
-            <input
-              type="number"
-              required
-              max={selectedCust?.outstandingBalance}
-              value={paymentAmount}
-              onChange={(e) => setPaymentAmount(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold text-base"
-            />
-          </div>
-
-          <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Payment Method</label>
-            <select
-              value={paymentMethod}
-              onChange={(e) => setPaymentMethod(e.target.value)}
-              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
-            >
-              <option value="Cash">Cash</option>
-              <option value="UPI">UPI Transfer</option>
-              <option value="Bank Transfer">Bank Transfer</option>
-            </select>
-          </div>
-
-          <button
-            type="submit"
-            disabled={isPaymentSubmitting}
-            className="w-full py-3 bg-emerald-600 text-white font-bold rounded-xl hover:bg-emerald-700 disabled:opacity-50 disabled:cursor-not-allowed transition flex items-center justify-center space-x-2"
-          >
-            {isPaymentSubmitting ? (
-              <>
-                <Loader2 className="w-4 h-4 animate-spin" />
-                <span>RECORDING PAYMENT...</span>
-              </>
-            ) : (
-              <span>Record Collection & Update Balance</span>
-            )}
-          </button>
-        </form>
-      </Modal>
+      {/* ➕ MANUAL DUE / OPENING BALANCE MODAL */}
+      <ManualDueModal
+        isOpen={isManualDueModalOpen}
+        onClose={() => {
+          setIsManualDueModalOpen(false);
+          setSelectedCustForDue(null);
+        }}
+        onConfirmManualDue={handleConfirmManualDue}
+        customer={selectedCustForDue}
+        isSubmitting={isManualDueSubmitting}
+      />
 
       {/* Add / Edit Customer Modal */}
       <Modal
@@ -406,7 +454,7 @@ export default function CustomersPage() {
           )}
 
           <div>
-            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Shop / Business Name</label>
+            <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Shop / Business Name *</label>
             <input
               type="text"
               required
@@ -419,7 +467,7 @@ export default function CustomersPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Owner Name</label>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Owner Name *</label>
               <input
                 type="text"
                 required
@@ -429,7 +477,7 @@ export default function CustomersPage() {
               />
             </div>
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Phone Number</label>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Phone Number *</label>
               <input
                 type="text"
                 required
@@ -442,33 +490,75 @@ export default function CustomersPage() {
 
           <div className="grid grid-cols-2 gap-4">
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Credit Limit (₹) <span className="text-pepsi-blue font-black">(Editable)</span>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span>Credit Limit (₹)</span>
+                {isAdmin ? (
+                  <span className="text-pepsi-blue text-[10px] font-black">(Editable)</span>
+                ) : (
+                  <span className="text-amber-600 dark:text-amber-400 text-[10px] font-black flex items-center space-x-1">
+                    <Lock className="w-3 h-3 inline" />
+                    <span>Admin Only</span>
+                  </span>
+                )}
               </label>
               <input
                 type="number"
                 required
+                disabled={!isAdmin}
                 value={custForm.creditLimit}
                 onChange={(e) => setCustForm({ ...custForm, creditLimit: e.target.value })}
-                placeholder="50000"
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black"
+                placeholder="5000"
+                className={`w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-black transition ${
+                  !isAdmin ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800/80 text-slate-500' : ''
+                }`}
               />
             </div>
+
             <div>
-              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">
-                Special Discount (%)
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span>Special Discount (%)</span>
+                {isAdmin ? (
+                  <span className="text-emerald-600 text-[10px] font-black">(Rate %)</span>
+                ) : (
+                  <span className="text-amber-600 dark:text-amber-400 text-[10px] font-black flex items-center space-x-1">
+                    <Lock className="w-3 h-3 inline" />
+                    <span>Admin Only</span>
+                  </span>
+                )}
               </label>
               <input
                 type="number"
                 min="0"
                 max="100"
+                disabled={!isAdmin}
                 value={custForm.discountPercentage}
                 onChange={(e) => setCustForm({ ...custForm, discountPercentage: e.target.value })}
                 placeholder="0"
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold"
+                className={`w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold transition ${
+                  !isAdmin ? 'opacity-60 cursor-not-allowed bg-slate-100 dark:bg-slate-800/80 text-slate-500' : ''
+                }`}
               />
             </div>
           </div>
+
+          {/* Initial Opening / Past Due Balance (Admin only on new customer registration) */}
+          {!editingCust && isAdmin && (
+            <div>
+              <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1 flex items-center justify-between">
+                <span>Initial Past Due / Opening Balance (₹)</span>
+                <span className="text-amber-600 font-bold text-[10px]">(Optional)</span>
+              </label>
+              <input
+                type="number"
+                min="0"
+                value={custForm.openingBalance}
+                onChange={(e) => setCustForm({ ...custForm, openingBalance: e.target.value })}
+                placeholder="e.g. 5000"
+                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-bold text-amber-600"
+              />
+              <p className="text-[10px] text-slate-400 mt-1">If this customer already has past udhaar from your old register, enter it here.</p>
+            </div>
+          )}
 
           <div>
             <label className="block font-bold text-slate-700 dark:text-slate-300 mb-1">Shop Address</label>

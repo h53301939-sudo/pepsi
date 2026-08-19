@@ -24,7 +24,11 @@ import {
   Target as TargetIcon,
   Edit3,
   Flame,
-  Sparkles
+  Sparkles,
+  Banknote,
+  Smartphone,
+  CreditCard,
+  History
 } from 'lucide-react';
 
 export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorkerUpdated }) {
@@ -33,9 +37,9 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
   const [toggling, setToggling] = useState(false);
   const [error, setError] = useState('');
 
-  // Invoice Tab & Search states
-  const [activeTab, setActiveTab] = useState('today'); // 'today' or 'all'
-  const [invoiceSearch, setInvoiceSearch] = useState('');
+  // Tab & Search states: 'today_sales' | 'all_sales' | 'today_collections' | 'all_collections'
+  const [activeTab, setActiveTab] = useState('today_sales');
+  const [searchQuery, setSearchQuery] = useState('');
   const [selectedInvoiceForModal, setSelectedInvoiceForModal] = useState(null);
 
   // Worker Monthly Target states
@@ -48,107 +52,27 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
     setError('');
 
     try {
-      // Fetch active sales, workers, products & target endpoints
-      const [salesRes, workersRes, productsRes, targetRes] = await Promise.all([
-        API.get('/sales').catch(() => ({ data: [] })),
-        API.get('/auth/workers').catch(() => ({ data: [] })),
-        API.get('/products').catch(() => ({ data: [] })),
+      const [profileRes, targetRes] = await Promise.all([
+        API.get(`/auth/workers/${workerId}/profile`).catch(err => {
+          console.error('Error fetching worker profile:', err);
+          return { data: null };
+        }),
         API.get(`/targets/current?workerId=${workerId}`).catch(err => {
-          console.error('Error fetching worker target in profile modal:', err);
+          console.error('Error fetching worker target:', err);
           return { data: null };
         })
       ]);
 
-      if (targetRes?.data) {
-        setTargetData(targetRes.data);
-      }
-
-      const allWorkers = workersRes.data || [];
-      const currentWorker = allWorkers.find(w => String(w._id) === String(workerId));
-
-      if (!currentWorker) {
+      if (!profileRes?.data || !profileRes?.data?.worker) {
         setError('Worker record not found.');
         setLoading(false);
         return;
       }
 
-      const allProducts = productsRes.data || [];
-      const productPriceMap = {};
-      allProducts.forEach(p => {
-        productPriceMap[String(p._id)] = p.purchasePrice || p.costPrice || 0;
-      });
-
-      const allSales = salesRes.data || [];
-      // Filter sales strictly for this worker
-      const workerSales = allSales.filter(s => {
-        const wId = s.worker?._id || s.worker;
-        return String(wId) === String(workerId);
-      });
-
-      // Compute Today's Date bounds (local midnight)
-      const now = new Date();
-      const todayStart = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 0, 0, 0, 0);
-      const todayEnd = new Date(now.getFullYear(), now.getMonth(), now.getDate(), 23, 59, 59, 999);
-
-      let lifetimeSales = 0;
-      let lifetimeProfit = 0;
-      let totalCasesSold = 0;
-
-      let todaySalesTotal = 0;
-      let todayProfitTotal = 0;
-      let todayCasesSold = 0;
-      const todaySalesList = [];
-
-      workerSales.forEach((sale) => {
-        const netAmt = sale.netTotal || 0;
-        lifetimeSales += netAmt;
-
-        let saleCost = 0;
-        let saleCases = 0;
-
-        (sale.items || []).forEach((item) => {
-          const qty = item.quantity || 0;
-          saleCases += qty;
-          const pId = item.product?._id || item.product;
-          const unitCost = productPriceMap[String(pId)] || (item.product && (item.product.purchasePrice || item.product.costPrice)) || 0;
-          saleCost += (qty * unitCost);
-        });
-
-        totalCasesSold += saleCases;
-        const profit = netAmt - saleCost;
-        lifetimeProfit += profit;
-
-        const saleDate = new Date(sale.createdAt);
-        if (saleDate >= todayStart && saleDate <= todayEnd) {
-          todaySalesTotal += netAmt;
-          todayProfitTotal += profit;
-          todayCasesSold += saleCases;
-          todaySalesList.push(sale);
-        }
-      });
-
-      const totalInvoices = workerSales.length;
-
-      setProfileData({
-        worker: currentWorker,
-        todayAnalytics: {
-          sales: todaySalesTotal,
-          profit: todayProfitTotal,
-          cases: todayCasesSold,
-          invoicesCount: todaySalesList.length,
-          margin: todaySalesTotal > 0 ? ((todayProfitTotal / todaySalesTotal) * 100).toFixed(1) : '0'
-        },
-        lifetimeAnalytics: {
-          sales: lifetimeSales,
-          profit: lifetimeProfit,
-          cases: totalCasesSold,
-          invoicesCount: totalInvoices,
-          averageOrderValue: totalInvoices > 0 ? Math.round(lifetimeSales / totalInvoices) : 0,
-          margin: lifetimeSales > 0 ? ((lifetimeProfit / lifetimeSales) * 100).toFixed(1) : '0'
-        },
-        todaySales: todaySalesList,
-        allSales: workerSales
-      });
+      setProfileData(profileRes.data);
+      if (targetRes?.data) {
+        setTargetData(targetRes.data);
+      }
     } catch (err) {
       console.error('Error loading worker profile:', err);
       setError(err.response?.data?.message || 'Failed to load worker profile data');
@@ -160,8 +84,8 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
   useEffect(() => {
     if (isOpen && workerId) {
       fetchProfile();
-      setActiveTab('today');
-      setInvoiceSearch('');
+      setActiveTab('today_sales');
+      setSearchQuery('');
     } else {
       setProfileData(null);
     }
@@ -194,16 +118,40 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
   if (!isOpen) return null;
 
   const worker = profileData?.worker;
-  const todayAnalytics = profileData?.todayAnalytics || { sales: 0, profit: 0, cases: 0, invoicesCount: 0, margin: 0 };
-  const lifetimeAnalytics = profileData?.lifetimeAnalytics || { sales: 0, profit: 0, cases: 0, invoicesCount: 0, averageOrderValue: 0, margin: 0 };
+  const todayAnalytics = profileData?.todayAnalytics || {
+    sales: 0, profit: 0, cases: 0, invoicesCount: 0,
+    cashInHand: 0, salesCash: 0, creditCash: 0,
+    upiDirect: 0, salesUpi: 0, creditUpi: 0,
+    creditRecovered: 0, creditGiven: 0, totalCollected: 0, collectionsCount: 0
+  };
+  const lifetimeAnalytics = profileData?.lifetimeAnalytics || {
+    sales: 0, profit: 0, cases: 0, invoicesCount: 0,
+    cashCollected: 0, upiCollected: 0, creditRecovered: 0, creditGiven: 0,
+    totalCollected: 0, collectionsCount: 0, averageOrderValue: 0, profitMargin: '0'
+  };
   const todaySales = profileData?.todaySales || [];
   const allSales = profileData?.allSales || [];
+  const todayCollections = profileData?.todayCollections || [];
+  const allCollections = profileData?.allCollections || [];
   const isActive = worker ? worker.active !== false : true;
 
-  // Selected invoices according to tab & search query
-  const displayedSalesList = (activeTab === 'today' ? todaySales : allSales).filter(s => {
-    if (!invoiceSearch) return true;
-    const q = invoiceSearch.toLowerCase();
+  // Filtered Collections List
+  const rawCollections = activeTab === 'today_collections' ? todayCollections : allCollections;
+  const displayedCollections = rawCollections.filter(c => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
+    const shop = (c.customer?.shopName || '').toLowerCase();
+    const owner = (c.customer?.ownerName || '').toLowerCase();
+    const method = (c.paymentMethod || '').toLowerCase();
+    const note = (c.remarks || '').toLowerCase();
+    return shop.includes(q) || owner.includes(q) || method.includes(q) || note.includes(q);
+  });
+
+  // Filtered Sales List
+  const rawSales = activeTab === 'today_sales' ? todaySales : allSales;
+  const displayedSales = rawSales.filter(s => {
+    if (!searchQuery) return true;
+    const q = searchQuery.toLowerCase();
     const invNum = (s.invoiceNumber || '').toLowerCase();
     const shop = (s.customer?.shopName || '').toLowerCase();
     const owner = (s.customer?.ownerName || '').toLowerCase();
@@ -215,13 +163,13 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
       <Modal 
         isOpen={isOpen} 
         onClose={onClose} 
-        title={worker ? `Worker Profile & Sales Dashboard: ${worker.name}` : 'Worker Performance Profile'}
+        title={worker ? `Worker 360° Profile & Settlement: ${worker.name}` : 'Worker Performance Profile'}
         maxWidth="max-w-5xl"
       >
         {loading ? (
           <div className="py-16 flex flex-col items-center justify-center space-y-3">
             <Loader2 className="w-8 h-8 text-pepsi-blue animate-spin" />
-            <p className="text-sm font-bold text-slate-500">Loading worker profile, today's sales & invoices...</p>
+            <p className="text-sm font-bold text-slate-500">Loading worker shift collections, cash handover & sales...</p>
           </div>
         ) : error ? (
           <div className="py-10 text-center space-y-3">
@@ -314,385 +262,493 @@ export default function WorkerProfileModal({ isOpen, onClose, workerId, onWorker
               </div>
             </div>
 
-            {/* 🌟 1. TODAY'S SALES & PROFIT METRICS (LIVE TODAY) */}
+            {/* 📊 SECTION 1: TODAY (EXACTLY AS PER SKETCH) */}
             <div className="space-y-2">
               <div className="flex items-center justify-between">
                 <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400 flex items-center space-x-1.5">
                   <span className="w-2 h-2 rounded-full bg-emerald-500 animate-ping" />
-                  <span>Today's Performance Overview (Live Today)</span>
+                  <span>Today's Performance</span>
                 </h3>
-                <span className="text-[11px] font-bold text-emerald-600 bg-emerald-50 dark:bg-emerald-950/40 px-2.5 py-0.5 rounded-full border border-emerald-200 dark:border-emerald-800">
+                <span className="text-[11px] font-bold text-pepsi-blue bg-blue-50 dark:bg-blue-950/40 px-2.5 py-0.5 rounded-full border border-blue-200 dark:border-blue-800">
                   {todayAnalytics.invoicesCount} Invoices Today
                 </span>
               </div>
 
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
+              <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
                 
-                {/* 💰 Today's Sales */}
-                <div className="bg-emerald-50/50 dark:bg-emerald-950/20 p-4 rounded-2xl border border-emerald-200 dark:border-emerald-800/60 shadow-sm space-y-1">
+                {/* 🛒 BOX 1: TODAY'S SALE TOTAL (WITH CASH - & UPI - BREAKDOWN) */}
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border-2 border-pepsi-blue/40 dark:border-blue-700/60 shadow-sm space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-emerald-700 dark:text-emerald-400 uppercase tracking-wider">Today's Sales</span>
-                    <div className="p-1.5 rounded-xl bg-emerald-100 dark:bg-emerald-900/50 text-emerald-700 dark:text-emerald-300">
-                      <DollarSign className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-lg sm:text-2xl font-black text-emerald-700 dark:text-emerald-300">
-                    ₹{Number(todayAnalytics.sales || 0).toLocaleString('en-IN')}
-                  </div>
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-semibold">Today's Net Revenue</p>
-                </div>
-
-                {/* 📈 Today's Profit */}
-                <div className="bg-blue-50/50 dark:bg-blue-950/20 p-4 rounded-2xl border border-blue-200 dark:border-blue-800/60 shadow-sm space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-blue-700 dark:text-blue-400 uppercase tracking-wider">Today's Profit</span>
-                    <div className="p-1.5 rounded-xl bg-blue-100 dark:bg-blue-900/50 text-pepsi-blue dark:text-blue-300">
-                      <TrendingUp className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-lg sm:text-2xl font-black text-[#002B7F] dark:text-blue-300">
-                    ₹{Number(Math.round(todayAnalytics.profit || 0)).toLocaleString('en-IN')}
-                  </div>
-                  <p className="text-[10px] text-blue-600 dark:text-blue-400 font-semibold">
-                    Margin: {todayAnalytics.margin}%
-                  </p>
-                </div>
-
-                {/* 📦 Today's Cases Sold */}
-                <div className="bg-amber-50/50 dark:bg-amber-950/20 p-4 rounded-2xl border border-amber-200 dark:border-amber-800/60 shadow-sm space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-amber-700 dark:text-amber-400 uppercase tracking-wider">Cases Sold Today</span>
-                    <div className="p-1.5 rounded-xl bg-amber-100 dark:bg-amber-900/50 text-amber-700 dark:text-amber-300">
-                      <Package className="w-4 h-4" />
-                    </div>
-                  </div>
-                  <div className="text-lg sm:text-2xl font-black text-amber-800 dark:text-amber-300">
-                    {Number(todayAnalytics.cases || 0).toLocaleString('en-IN')} Cases
-                  </div>
-                  <p className="text-[10px] text-amber-600 dark:text-amber-400 font-semibold">Delivered Today</p>
-                </div>
-
-                {/* 🧾 Today's Invoices */}
-                <div className="bg-purple-50/50 dark:bg-purple-950/20 p-4 rounded-2xl border border-purple-200 dark:border-purple-800/60 shadow-sm space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[11px] font-bold text-purple-700 dark:text-purple-400 uppercase tracking-wider">Today's Invoices</span>
-                    <div className="p-1.5 rounded-xl bg-purple-100 dark:bg-purple-900/50 text-purple-700 dark:text-purple-300">
+                    <span className="text-[11px] font-extrabold text-[#0051A5] dark:text-blue-300 uppercase tracking-wider">
+                      Today's Sale Total
+                    </span>
+                    <div className="p-1.5 rounded-xl bg-[#0051A5] text-white shadow">
                       <Receipt className="w-4 h-4" />
                     </div>
                   </div>
-                  <div className="text-lg sm:text-2xl font-black text-purple-800 dark:text-purple-300">
-                    {Number(todayAnalytics.invoicesCount || 0).toLocaleString('en-IN')} Orders
+                  <div className="text-2xl font-black text-[#0051A5] dark:text-blue-300">
+                    ₹{Number(todayAnalytics.sales || 0).toLocaleString('en-IN')}
                   </div>
-                  <p className="text-[10px] text-purple-600 dark:text-purple-400 font-semibold">
-                    Avg: ₹{todayAnalytics.invoicesCount > 0 ? Math.round(todayAnalytics.sales / todayAnalytics.invoicesCount).toLocaleString('en-IN') : 0}/sale
-                  </p>
-                </div>
-
-              </div>
-            </div>
-
-            {/* 🎯 2. WORKER MONTHLY SALES TARGET & PACING (ADMIN ASSIGNED) */}
-            {targetData && (
-              <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-                <div className="flex items-center justify-between flex-wrap gap-2 pb-3 border-b border-slate-100 dark:border-slate-700">
-                  <div className="flex items-center space-x-3">
-                    <div className="p-2.5 bg-blue-50 dark:bg-blue-900/30 rounded-xl text-pepsi-blue dark:text-blue-400">
-                      <TargetIcon className="w-5 h-5" />
+                  <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium space-y-0.5 pt-1 border-t border-slate-100 dark:border-slate-700">
+                    <div className="flex justify-between">
+                      <span>Cash:</span>
+                      <strong className="text-emerald-600">₹{Number(todayAnalytics.salesCash || 0).toLocaleString('en-IN')}</strong>
                     </div>
-                    <div>
-                      <div className="flex items-center space-x-2">
-                        <h3 className="font-extrabold text-sm text-slate-900 dark:text-white">
-                          Monthly Sales Target ({targetData.target?.month})
-                        </h3>
-                        <span className="text-[10px] px-2 py-0.5 rounded-md bg-blue-100 dark:bg-blue-950/60 text-[#0051A5] dark:text-blue-300 font-bold">
-                          Assigned Target
-                        </span>
+                    <div className="flex justify-between">
+                      <span>UPI:</span>
+                      <strong className="text-blue-600">₹{Number(todayAnalytics.salesUpi || 0).toLocaleString('en-IN')}</strong>
+                    </div>
+                    {Number(todayAnalytics.creditGiven || 0) > 0 && (
+                      <div className="flex justify-between text-amber-600">
+                        <span>New Due:</span>
+                        <strong>₹{Number(todayAnalytics.creditGiven || 0).toLocaleString('en-IN')}</strong>
                       </div>
-                      <p className="text-xs text-slate-500 dark:text-slate-400">
-                        Assigned volume & revenue milestone for this salesman
-                      </p>
-                    </div>
-                  </div>
-
-                  <div className="flex items-center space-x-2">
-                    {targetData.pacingStatus === 'TARGET_ACHIEVED' ? (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-emerald-100 text-emerald-800 dark:bg-emerald-900/40 dark:text-emerald-300 text-xs font-bold">
-                        <CheckCircle2 className="w-3.5 h-3.5 mr-1" />
-                        Target Achieved 🎉
-                      </span>
-                    ) : targetData.pacingStatus === 'ON_TRACK' ? (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-blue-100 text-pepsi-blue dark:bg-blue-900/40 dark:text-blue-300 text-xs font-bold">
-                        <Flame className="w-3.5 h-3.5 mr-1" />
-                        On Track 🚀
-                      </span>
-                    ) : (
-                      <span className="inline-flex items-center px-2.5 py-1 rounded-xl bg-amber-100 text-amber-800 dark:bg-amber-900/40 dark:text-amber-300 text-xs font-bold">
-                        <Clock className="w-3.5 h-3.5 mr-1" />
-                        Behind Pace ⚠️
-                      </span>
                     )}
-
-                    <button
-                      type="button"
-                      onClick={() => setIsTargetModalOpen(true)}
-                      className="flex items-center space-x-1.5 px-3 py-1.5 bg-[#0051A5] hover:bg-blue-700 text-white text-xs font-bold rounded-xl shadow-sm transition"
-                    >
-                      <Edit3 className="w-3.5 h-3.5" />
-                      <span>Set / Edit Target</span>
-                    </button>
                   </div>
                 </div>
 
-                {/* Progress Bars Grid */}
-                <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
-                  {/* Volume Cases */}
-                  <div className="p-3.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-100 dark:border-slate-700 space-y-1.5">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">Volume Goal (Cases)</span>
-                      <span className="font-black text-slate-900 dark:text-white">
-                        {targetData.actualCases?.toLocaleString('en-IN')} / {targetData.target?.targetCases?.toLocaleString('en-IN')} Cases
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className="bg-[#0051A5] h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, targetData.casesProgressPct || 0)}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
-                      <span>Completed: <strong className="text-[#0051A5] dark:text-blue-400">{targetData.casesProgressPct}%</strong></span>
-                      <span>Remaining: <strong>{targetData.remainingCasesToTarget?.toLocaleString('en-IN')} Cases</strong></span>
-                    </div>
-                  </div>
-
-                  {/* Revenue */}
-                  <div className="p-3.5 bg-slate-50 dark:bg-slate-700/40 rounded-xl border border-slate-100 dark:border-slate-700 space-y-1.5">
-                    <div className="flex justify-between items-center text-xs">
-                      <span className="font-bold text-slate-700 dark:text-slate-300">Revenue Goal (₹)</span>
-                      <span className="font-black text-slate-900 dark:text-white">
-                        ₹{Number(targetData.actualRevenue || 0).toLocaleString('en-IN')} / ₹{Number(targetData.target?.targetRevenue || 0).toLocaleString('en-IN')}
-                      </span>
-                    </div>
-                    <div className="w-full bg-slate-200 dark:bg-slate-600 rounded-full h-2.5 overflow-hidden">
-                      <div
-                        className="bg-emerald-500 h-full rounded-full transition-all duration-500"
-                        style={{ width: `${Math.min(100, targetData.revenueProgressPct || 0)}%` }}
-                      />
-                    </div>
-                    <div className="flex justify-between items-center text-[10px] text-slate-500 dark:text-slate-400 font-semibold">
-                      <span>Collected: <strong className="text-emerald-600 dark:text-emerald-400">{targetData.revenueProgressPct}%</strong></span>
-                      <span>Remaining: <strong>₹{Number(targetData.remainingRevenueToTarget || 0).toLocaleString('en-IN')}</strong></span>
-                    </div>
-                  </div>
-                </div>
-
-              </div>
-            )}
-
-            {/* 📊 3. LIFETIME PERFORMANCE STATS */}
-            <div className="space-y-2">
-              <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
-                Lifetime All-Time Performance
-              </h3>
-
-              <div className="grid grid-cols-2 lg:grid-cols-4 gap-3 sm:gap-4">
-                
-                {/* Lifetime Sales */}
+                {/* 📈 BOX 2: TODAY'S PROFIT */}
                 <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
                   <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Lifetime Sales</span>
-                    <DollarSign className="w-3.5 h-3.5 text-slate-400" />
+                    <span className="text-[11px] font-extrabold text-emerald-700 dark:text-emerald-300 uppercase tracking-wider">
+                      Today's Profit
+                    </span>
+                    <div className="p-1.5 rounded-xl bg-emerald-500 text-white shadow">
+                      <TrendingUp className="w-4 h-4" />
+                    </div>
                   </div>
-                  <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white">
+                  <div className="text-2xl font-black text-emerald-600 dark:text-emerald-400">
+                    ₹{Number(Math.round(todayAnalytics.profit || 0)).toLocaleString('en-IN')}
+                  </div>
+                  <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium space-y-0.5 pt-1 border-t border-slate-100 dark:border-slate-700">
+                    <div className="flex justify-between">
+                      <span>Margin:</span>
+                      <strong className="text-emerald-600">
+                        {todayAnalytics.sales > 0 ? ((todayAnalytics.profit / todayAnalytics.sales) * 100).toFixed(1) : 0}%
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>Invoices:</span>
+                      <strong>{todayAnalytics.invoicesCount || 0} Orders</strong>
+                    </div>
+                  </div>
+                </div>
+
+                {/* 📦 BOX 3: TODAY'S CASES */}
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Today's Cases
+                    </span>
+                    <div className="p-1.5 rounded-xl bg-amber-500 text-white shadow">
+                      <Package className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">
+                    {Number(todayAnalytics.cases || 0).toLocaleString('en-IN')} Cases
+                  </div>
+                  <div className="text-[10px] text-slate-500 font-medium pt-1 border-t border-slate-100 dark:border-slate-700 flex justify-between">
+                    <span>Delivered:</span>
+                    <strong>Route Stock</strong>
+                  </div>
+                </div>
+
+                {/* 💳 BOX 4: TODAY'S COLLECTED DUES (CASH - / UPI -) */}
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+                  <div className="flex items-center justify-between">
+                    <span className="text-[11px] font-extrabold text-slate-700 dark:text-slate-300 uppercase tracking-wider">
+                      Today's Collected Dues
+                    </span>
+                    <div className="p-1.5 rounded-xl bg-purple-600 text-white shadow">
+                      <Banknote className="w-4 h-4" />
+                    </div>
+                  </div>
+                  <div className="text-2xl font-black text-slate-900 dark:text-white">
+                    ₹{Number(todayAnalytics.creditRecovered || 0).toLocaleString('en-IN')}
+                  </div>
+                  <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium space-y-0.5 pt-1 border-t border-slate-100 dark:border-slate-700">
+                    <div className="flex justify-between">
+                      <span>Cash:</span>
+                      <strong className="text-emerald-600">₹{Number(todayAnalytics.creditCash || 0).toLocaleString('en-IN')}</strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>UPI:</span>
+                      <strong className="text-blue-600">₹{Number(todayAnalytics.creditUpi || 0).toLocaleString('en-IN')}</strong>
+                    </div>
+                  </div>
+                </div>
+
+              </div>
+
+              {/* 💵 TOTAL CASH TO BE COLLECTED & UPI SETTLEMENT SUMMARY BOX */}
+              <div className="bg-gradient-to-r from-emerald-50/80 via-slate-50 to-blue-50/80 dark:from-emerald-950/30 dark:via-slate-800 dark:to-blue-950/30 p-4 rounded-2xl border border-emerald-200/80 dark:border-emerald-800/60 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs mt-2">
+                <div className="flex items-center space-x-3">
+                  <div className="p-2.5 bg-emerald-600 text-white rounded-xl shadow-md shrink-0">
+                    <Banknote className="w-5 h-5" />
+                  </div>
+                  <div>
+                    <h4 className="font-extrabold text-slate-900 dark:text-white text-sm">
+                      Total Today's Cash & Payment Handover
+                    </h4>
+                    <p className="text-[11px] text-slate-500 dark:text-slate-400">
+                      Combined settlement from today's sales & customer dues collected
+                    </p>
+                  </div>
+                </div>
+
+                <div className="flex items-center space-x-3 flex-wrap gap-2">
+                  {/* Total Physical Cash to Collect */}
+                  <div className="bg-white dark:bg-slate-800 px-4 py-2 rounded-xl border border-emerald-300 dark:border-emerald-700/80 shadow-xs">
+                    <span className="text-[10px] font-bold text-emerald-800 dark:text-emerald-300 block uppercase tracking-wider">
+                      💵 Total Cash To Collect from Worker:
+                    </span>
+                    <span className="text-lg font-black text-emerald-600 dark:text-emerald-400">
+                      ₹{Number(todayAnalytics.cashInHand || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+
+                  {/* Total UPI in Bank */}
+                  <div className="bg-white dark:bg-slate-800 px-4 py-2 rounded-xl border border-blue-300 dark:border-blue-700/80 shadow-xs">
+                    <span className="text-[10px] font-bold text-blue-800 dark:text-blue-300 block uppercase tracking-wider">
+                      📱 Total UPI Received in Bank:
+                    </span>
+                    <span className="text-lg font-black text-pepsi-blue dark:text-blue-400">
+                      ₹{Number(todayAnalytics.upiDirect || 0).toLocaleString('en-IN')}
+                    </span>
+                  </div>
+                </div>
+              </div>
+
+            </div>
+
+            {/* ─── HORIZONTAL DIVIDER LINE (AS DRAWN IN SKETCH) ─── */}
+            <hr className="border-t-2 border-slate-200 dark:border-slate-700" />
+
+            {/* 📊 SECTION 2: LIFETIME (3 BOXES EXACTLY AS PER SKETCH) */}
+            <div className="space-y-2">
+              <div className="flex items-center justify-between">
+                <h3 className="text-xs font-black uppercase tracking-wider text-slate-500 dark:text-slate-400">
+                  Lifetime Performance
+                </h3>
+                <span className="text-[10px] text-slate-400 font-medium">All Time Record</span>
+              </div>
+
+              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3 sm:gap-4">
+                
+                {/* 🛒 BOX 1: LIFETIME SALES (WITH CASH - & UPI - BREAKDOWN) */}
+                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+                  <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                    Lifetime Sales
+                  </span>
+                  <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
                     ₹{Number(lifetimeAnalytics.sales || 0).toLocaleString('en-IN')}
                   </div>
-                  <p className="text-[10px] text-slate-400 font-medium">Total Cumulative Revenue</p>
+                  <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium space-y-0.5 pt-1 border-t border-slate-100 dark:border-slate-700">
+                    <div className="flex justify-between">
+                      <span>Cash:</span>
+                      <strong className="text-emerald-600">
+                        ₹{Number(lifetimeAnalytics.salesCash !== undefined ? lifetimeAnalytics.salesCash : (lifetimeAnalytics.cashCollected || 0)).toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                    <div className="flex justify-between">
+                      <span>UPI:</span>
+                      <strong className="text-blue-600">
+                        ₹{Number(lifetimeAnalytics.salesUpi !== undefined ? lifetimeAnalytics.salesUpi : (lifetimeAnalytics.upiCollected || 0)).toLocaleString('en-IN')}
+                      </strong>
+                    </div>
+                  </div>
                 </div>
 
-                {/* Lifetime Profit */}
+                {/* 📈 BOX 2: LIFETIME PROFIT */}
                 <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Lifetime Profit</span>
-                    <TrendingUp className="w-3.5 h-3.5 text-emerald-500" />
-                  </div>
-                  <div className="text-base sm:text-xl font-black text-emerald-600 dark:text-emerald-400">
+                  <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                    Lifetime Profit
+                  </span>
+                  <div className="text-xl sm:text-2xl font-black text-emerald-600 dark:text-emerald-400">
                     ₹{Number(Math.round(lifetimeAnalytics.profit || 0)).toLocaleString('en-IN')}
                   </div>
-                  <p className="text-[10px] text-emerald-600 dark:text-emerald-400 font-bold">
-                    Margin: {lifetimeAnalytics.margin}%
+                  <p className="text-[10px] text-emerald-600/80 font-semibold">
+                    Avg Margin: {lifetimeAnalytics.sales > 0 ? ((lifetimeAnalytics.profit / lifetimeAnalytics.sales) * 100).toFixed(1) : 0}%
                   </p>
                 </div>
 
-                {/* Total Cases Sold */}
+                {/* 📦 BOX 3: LIFETIME CASES */}
                 <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Cases Sold</span>
-                    <Package className="w-3.5 h-3.5 text-amber-500" />
+                  <span className="text-[11px] font-extrabold text-slate-500 uppercase tracking-wider block">
+                    Lifetime Cases
+                  </span>
+                  <div className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
+                    {Number(lifetimeAnalytics.cases || 0).toLocaleString('en-IN')} Cases
                   </div>
-                  <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white">
-                    {Number(lifetimeAnalytics.cases || 0).toLocaleString('en-IN')}
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-medium">Cases Delivered</p>
-                </div>
-
-                {/* Total Orders / Invoices */}
-                <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
-                  <div className="flex items-center justify-between">
-                    <span className="text-[10px] font-bold text-slate-500 uppercase tracking-wider">Total Invoices</span>
-                    <Receipt className="w-3.5 h-3.5 text-purple-500" />
-                  </div>
-                  <div className="text-base sm:text-xl font-black text-slate-900 dark:text-white">
-                    {Number(lifetimeAnalytics.invoicesCount || 0).toLocaleString('en-IN')}
-                  </div>
-                  <p className="text-[10px] text-slate-400 font-medium">
-                    Avg: ₹{Number(lifetimeAnalytics.averageOrderValue || 0).toLocaleString('en-IN')}/sale
-                  </p>
+                  <p className="text-[10px] text-slate-400 font-semibold">Total Delivered Volume</p>
                 </div>
 
               </div>
             </div>
 
-            {/* 📜 3. SALES INVOICES HISTORY WITH TABS & INVOICE VIEWER */}
+            {/* 📜 4. INTERACTIVE TABS: CREDIT COLLECTIONS & SALES INVOICES */}
             <div className="bg-white dark:bg-slate-800 rounded-2xl border border-slate-200 dark:border-slate-700 overflow-hidden shadow-sm space-y-3 p-4 sm:p-5">
               
-              {/* Header: Tabs + Search Bar */}
-              <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700">
+              {/* Header: Tab Buttons + Search */}
+              <div className="flex flex-col md:flex-row md:items-center justify-between gap-3 pb-3 border-b border-slate-100 dark:border-slate-700">
                 
-                {/* Tab Switcher */}
-                <div className="flex items-center space-x-2 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
+                {/* 4 Multi-View Tabs (Sales First) */}
+                <div className="flex flex-wrap items-center gap-1.5 bg-slate-100 dark:bg-slate-700/60 p-1 rounded-xl">
                   <button
                     type="button"
-                    onClick={() => setActiveTab('today')}
-                    className={`px-3 py-1.5 rounded-lg font-extrabold text-xs transition flex items-center space-x-1.5 ${
-                      activeTab === 'today'
+                    onClick={() => setActiveTab('today_sales')}
+                    className={`px-3 py-1.5 rounded-lg font-extrabold text-xs transition flex items-center space-x-1.5 cursor-pointer ${
+                      activeTab === 'today_sales'
                         ? 'bg-pepsi-blue text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                     }`}
                   >
-                    <Calendar className="w-3.5 h-3.5" />
+                    <Receipt className="w-3.5 h-3.5" />
                     <span>Today's Sales ({todaySales.length})</span>
                   </button>
 
                   <button
                     type="button"
-                    onClick={() => setActiveTab('all')}
-                    className={`px-3 py-1.5 rounded-lg font-extrabold text-xs transition flex items-center space-x-1.5 ${
-                      activeTab === 'all'
+                    onClick={() => setActiveTab('all_sales')}
+                    className={`px-3 py-1.5 rounded-lg font-extrabold text-xs transition flex items-center space-x-1.5 cursor-pointer ${
+                      activeTab === 'all_sales'
                         ? 'bg-pepsi-blue text-white shadow-sm'
                         : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
                     }`}
                   >
                     <FileText className="w-3.5 h-3.5" />
-                    <span>All Invoices History ({allSales.length})</span>
+                    <span>All Invoices ({allSales.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('today_collections')}
+                    className={`px-3 py-1.5 rounded-lg font-extrabold text-xs transition flex items-center space-x-1.5 cursor-pointer ${
+                      activeTab === 'today_collections'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    <Banknote className="w-3.5 h-3.5" />
+                    <span>Today's Collections ({todayCollections.length})</span>
+                  </button>
+
+                  <button
+                    type="button"
+                    onClick={() => setActiveTab('all_collections')}
+                    className={`px-3 py-1.5 rounded-lg font-extrabold text-xs transition flex items-center space-x-1.5 cursor-pointer ${
+                      activeTab === 'all_collections'
+                        ? 'bg-emerald-600 text-white shadow-sm'
+                        : 'text-slate-600 dark:text-slate-300 hover:text-slate-900'
+                    }`}
+                  >
+                    <History className="w-3.5 h-3.5" />
+                    <span>All Collections ({allCollections.length})</span>
                   </button>
                 </div>
 
-                {/* Search Input */}
-                <div className="relative w-full sm:w-64">
+                {/* Search Bar */}
+                <div className="relative w-full md:w-64">
                   <Search className="w-3.5 h-3.5 text-slate-400 absolute left-3 top-1/2 -translate-y-1/2" />
                   <input
                     type="text"
-                    value={invoiceSearch}
-                    onChange={(e) => setInvoiceSearch(e.target.value)}
-                    placeholder="Search invoice # or shop name..."
+                    value={searchQuery}
+                    onChange={(e) => setSearchQuery(e.target.value)}
+                    placeholder="Search shop, owner, method..."
                     className="w-full pl-8 pr-3 py-1.5 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-xs text-slate-900 dark:text-white"
                   />
                 </div>
-
               </div>
 
-              {/* Invoices Table */}
-              {displayedSalesList.length === 0 ? (
-                <div className="py-10 text-center text-slate-400 text-xs italic">
-                  {activeTab === 'today' 
-                    ? 'No sales billed by this worker today.' 
-                    : 'No sales records found for this worker.'}
-                </div>
-              ) : (
-                <div className="overflow-x-auto max-h-80 overflow-y-auto">
-                  <table className="w-full text-left text-xs">
-                    <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-700 sticky top-0">
-                      <tr>
-                        <th className="py-2.5 px-4">Invoice #</th>
-                        <th className="py-2.5 px-4">Customer Shop</th>
-                        <th className="py-2.5 px-4 text-center">Cases</th>
-                        <th className="py-2.5 px-4 text-right">Net Amount</th>
-                        <th className="py-2.5 px-4 text-center">Status</th>
-                        <th className="py-2.5 px-4">Date & Time</th>
-                        <th className="py-2.5 px-4 text-center">Action</th>
-                      </tr>
-                    </thead>
-                    <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
-                      {displayedSalesList.map((sale) => {
-                        const totalCases = (sale.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
-                        return (
-                          <tr key={sale._id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition">
-                            
-                            {/* Invoice Number */}
-                            <td className="py-2.5 px-4 font-bold text-blue-600 dark:text-blue-400">
-                              {sale.invoiceNumber}
-                            </td>
-
-                            {/* Customer Shop */}
-                            <td className="py-2.5 px-4">
-                              <span className="font-bold text-slate-900 dark:text-white block">
-                                {sale.customer?.shopName || 'Retail Customer'}
-                              </span>
-                              <span className="text-[10px] text-slate-400">
-                                {sale.customer?.ownerName || sale.customer?.phone || ''}
-                              </span>
-                            </td>
-
-                            {/* Total Cases */}
-                            <td className="py-2.5 px-4 text-center font-bold text-slate-700 dark:text-slate-200">
-                              {totalCases} cases
-                            </td>
-
-                            {/* Net Total */}
-                            <td className="py-2.5 px-4 text-right font-black text-slate-900 dark:text-white">
-                              ₹{Number(sale.netTotal || 0).toLocaleString('en-IN')}
-                            </td>
-
-                            {/* Payment Status */}
-                            <td className="py-2.5 px-4 text-center">
-                              <span className={`inline-flex items-center px-2 py-0.5 rounded-full text-[10px] font-bold ${
-                                sale.status === 'Paid'
-                                  ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
-                                  : sale.status === 'Partial'
-                                  ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
-                                  : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
-                              }`}>
-                                {sale.paymentMethod} • {sale.status}
-                              </span>
-                            </td>
-
-                            {/* Date & Time */}
-                            <td className="py-2.5 px-4 text-slate-500 whitespace-nowrap text-[11px]">
-                              {new Date(sale.createdAt).toLocaleDateString('en-IN', {
-                                day: '2-digit',
-                                month: 'short',
-                                year: 'numeric'
-                              })} • {new Date(sale.createdAt).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
-                            </td>
-
-                            {/* View / Print Full Invoice Button */}
-                            <td className="py-2.5 px-4 text-center">
-                              <button
-                                type="button"
-                                onClick={() => setSelectedInvoiceForModal(sale)}
-                                className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[#002B7F] dark:text-blue-300 rounded-lg font-bold text-[11px] inline-flex items-center space-x-1 transition"
-                                title="View & Print Full Bill Invoice"
-                              >
-                                <Eye className="w-3 h-3" />
-                                <span>View Bill</span>
-                              </button>
-                            </td>
-
+              {/* 📑 VIEW 1 & 2: CREDIT / UDHAAR COLLECTIONS TABLE */}
+              {(activeTab === 'today_collections' || activeTab === 'all_collections') && (
+                <div>
+                  {displayedCollections.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-xs italic">
+                      {activeTab === 'today_collections'
+                        ? 'No credit/udhaar payments collected by this worker today.'
+                        : 'No collection history recorded for this worker.'}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-700 sticky top-0">
+                          <tr>
+                            <th className="py-2.5 px-4">Date & Time</th>
+                            <th className="py-2.5 px-4">Customer Shop</th>
+                            <th className="py-2.5 px-4 text-center">Method</th>
+                            <th className="py-2.5 px-4 text-right">Cash (₹)</th>
+                            <th className="py-2.5 px-4 text-right">UPI (₹)</th>
+                            <th className="py-2.5 px-4 text-right">Total (₹)</th>
+                            <th className="py-2.5 px-4">Remarks / Note</th>
                           </tr>
-                        );
-                      })}
-                    </tbody>
-                  </table>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {displayedCollections.map((c) => (
+                            <tr key={c._id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition">
+                              
+                              {/* Date & Time */}
+                              <td className="py-2.5 px-4 text-slate-500 whitespace-nowrap text-[11px]">
+                                {new Date(c.createdAt || c.paymentDate).toLocaleDateString('en-IN', {
+                                  day: '2-digit',
+                                  month: 'short'
+                                })} • {new Date(c.createdAt || c.paymentDate).toLocaleTimeString('en-IN', { hour: '2-digit', minute: '2-digit' })}
+                              </td>
+
+                              {/* Customer Shop */}
+                              <td className="py-2.5 px-4">
+                                <span className="font-bold text-slate-900 dark:text-white block">
+                                  {c.customer?.shopName || 'Customer'}
+                                </span>
+                                <span className="text-[10px] text-slate-400">
+                                  {c.customer?.ownerName || c.customer?.phone || ''}
+                                </span>
+                              </td>
+
+                              {/* Payment Method Badge */}
+                              <td className="py-2.5 px-4 text-center">
+                                <span className={`px-2 py-0.5 rounded-md font-bold text-[10px] inline-block ${
+                                  c.paymentMethod === 'Cash'
+                                    ? 'bg-emerald-100 text-emerald-800 dark:bg-emerald-950/60 dark:text-emerald-300'
+                                    : c.paymentMethod === 'UPI'
+                                    ? 'bg-blue-100 text-blue-800 dark:bg-blue-950/60 dark:text-blue-300'
+                                    : 'bg-purple-100 text-purple-800 dark:bg-purple-950/60 dark:text-purple-300'
+                                }`}>
+                                  {c.paymentMethod}
+                                </span>
+                              </td>
+
+                              {/* Cash Amount */}
+                              <td className="py-2.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                {Number(c.cashAmount || (c.paymentMethod === 'Cash' ? c.amount : 0) || 0) > 0
+                                  ? `₹${Number(c.cashAmount || (c.paymentMethod === 'Cash' ? c.amount : 0)).toLocaleString('en-IN')}`
+                                  : '—'}
+                              </td>
+
+                              {/* UPI Amount */}
+                              <td className="py-2.5 px-4 text-right font-bold text-blue-600 dark:text-blue-400">
+                                {Number(c.upiAmount || (c.paymentMethod === 'UPI' ? c.amount : 0) || 0) > 0
+                                  ? `₹${Number(c.upiAmount || (c.paymentMethod === 'UPI' ? c.amount : 0)).toLocaleString('en-IN')}`
+                                  : '—'}
+                              </td>
+
+                              {/* Total Collected */}
+                              <td className="py-2.5 px-4 text-right font-black text-slate-900 dark:text-white">
+                                ₹{Number(c.amount || 0).toLocaleString('en-IN')}
+                              </td>
+
+                              {/* Remarks */}
+                              <td className="py-2.5 px-4 text-slate-500 text-[11px] max-w-[160px] truncate" title={c.remarks}>
+                                {c.remarks || 'Credit Payment Collection'}
+                              </td>
+
+                            </tr>
+                          ))}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {/* 📑 VIEW 3 & 4: SALES INVOICES TABLE */}
+              {(activeTab === 'today_sales' || activeTab === 'all_sales') && (
+                <div>
+                  {displayedSales.length === 0 ? (
+                    <div className="py-12 text-center text-slate-400 text-xs italic">
+                      {activeTab === 'today_sales'
+                        ? 'No sales billed by this worker today.'
+                        : 'No sales records found for this worker.'}
+                    </div>
+                  ) : (
+                    <div className="overflow-x-auto max-h-80 overflow-y-auto">
+                      <table className="w-full text-left text-xs">
+                        <thead className="bg-slate-50 dark:bg-slate-900/60 text-slate-500 dark:text-slate-400 font-bold border-b border-slate-100 dark:border-slate-700 sticky top-0">
+                          <tr>
+                            <th className="py-2.5 px-4">Invoice #</th>
+                            <th className="py-2.5 px-4">Customer Shop</th>
+                            <th className="py-2.5 px-4 text-center">Cases</th>
+                            <th className="py-2.5 px-4 text-right">Net Amount</th>
+                            <th className="py-2.5 px-4 text-right">Paid (Cash/UPI)</th>
+                            <th className="py-2.5 px-4 text-right">Udhaar Due</th>
+                            <th className="py-2.5 px-4 text-center">Status</th>
+                            <th className="py-2.5 px-4 text-center">Action</th>
+                          </tr>
+                        </thead>
+                        <tbody className="divide-y divide-slate-100 dark:divide-slate-700/60">
+                          {displayedSales.map((sale) => {
+                            const totalCases = (sale.items || []).reduce((sum, item) => sum + (item.quantity || 0), 0);
+                            return (
+                              <tr key={sale._id} className="hover:bg-slate-50/80 dark:hover:bg-slate-700/30 transition">
+                                
+                                {/* Invoice Number */}
+                                <td className="py-2.5 px-4 font-bold text-pepsi-blue dark:text-blue-400">
+                                  {sale.invoiceNumber}
+                                </td>
+
+                                {/* Customer Shop */}
+                                <td className="py-2.5 px-4">
+                                  <span className="font-bold text-slate-900 dark:text-white block">
+                                    {sale.customer?.shopName || 'Retail Customer'}
+                                  </span>
+                                  <span className="text-[10px] text-slate-400">
+                                    {sale.customer?.ownerName || sale.customer?.phone || ''}
+                                  </span>
+                                </td>
+
+                                {/* Total Cases */}
+                                <td className="py-2.5 px-4 text-center font-bold text-slate-700 dark:text-slate-200">
+                                  {totalCases} cs
+                                </td>
+
+                                {/* Net Total */}
+                                <td className="py-2.5 px-4 text-right font-black text-slate-900 dark:text-white">
+                                  ₹{Number(sale.netTotal || 0).toLocaleString('en-IN')}
+                                </td>
+
+                                {/* Paid Amount */}
+                                <td className="py-2.5 px-4 text-right font-bold text-emerald-600 dark:text-emerald-400">
+                                  ₹{Number(sale.paidAmount || 0).toLocaleString('en-IN')}
+                                </td>
+
+                                {/* Due Amount */}
+                                <td className="py-2.5 px-4 text-right font-bold text-amber-600 dark:text-amber-400">
+                                  {Number(sale.dueAmount || 0) > 0 ? `₹${Number(sale.dueAmount).toLocaleString('en-IN')}` : '₹0'}
+                                </td>
+
+                                {/* Status Badge */}
+                                <td className="py-2.5 px-4 text-center">
+                                  <span className={`px-2 py-0.5 rounded-full font-bold text-[10px] ${
+                                    sale.status === 'Paid'
+                                      ? 'bg-emerald-50 text-emerald-700 dark:bg-emerald-950/40 dark:text-emerald-300'
+                                      : sale.status === 'Partial'
+                                      ? 'bg-amber-50 text-amber-700 dark:bg-amber-950/40 dark:text-amber-300'
+                                      : 'bg-red-50 text-red-700 dark:bg-red-950/40 dark:text-red-300'
+                                  }`}>
+                                    {sale.status}
+                                  </span>
+                                </td>
+
+                                {/* View / Print Bill Button */}
+                                <td className="py-2.5 px-4 text-center">
+                                  <button
+                                    type="button"
+                                    onClick={() => setSelectedInvoiceForModal(sale)}
+                                    className="px-2.5 py-1 bg-blue-50 dark:bg-blue-950/50 hover:bg-blue-100 dark:hover:bg-blue-900/60 text-[#002B7F] dark:text-blue-300 rounded-lg font-bold text-[11px] inline-flex items-center space-x-1 transition cursor-pointer"
+                                    title="View & Print Full Bill Invoice"
+                                  >
+                                    <Eye className="w-3 h-3" />
+                                    <span>View</span>
+                                  </button>
+                                </td>
+
+                              </tr>
+                            );
+                          })}
+                        </tbody>
+                      </table>
+                    </div>
+                  )}
                 </div>
               )}
 

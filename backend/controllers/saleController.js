@@ -118,13 +118,14 @@ const createSale = async (req, res) => {
 
     // ACTIVE CREDIT LIMIT ENFORCEMENT Check
     if (dueAmount > 0) {
-      const creditLimit = Number(customer.creditLimit || 0);
+      const creditLimit = Number(customer.creditLimit !== undefined ? customer.creditLimit : 5000);
       const currentDue = Number(customer.outstandingBalance || 0);
       const prospectiveTotalDue = currentDue + dueAmount;
 
-      if (creditLimit > 0 && prospectiveTotalDue > creditLimit) {
+      if (prospectiveTotalDue > creditLimit) {
+        const availableCredit = Math.max(0, creditLimit - currentDue);
         return res.status(400).json({
-          message: `Credit Limit Exceeded for ${customer.shopName}! Credit Limit: ₹${creditLimit.toLocaleString()}, Current Balance: ₹${currentDue.toLocaleString()}, New Due: ₹${dueAmount.toLocaleString()}. Total ₹${prospectiveTotalDue.toLocaleString()} exceeds limit of ₹${creditLimit.toLocaleString()}. Collect payment or increase limit before proceeding.`
+          message: `⛔ Credit Limit Exceeded for "${customer.shopName}"! Credit Limit: ₹${creditLimit.toLocaleString('en-IN')}, Current Due: ₹${currentDue.toLocaleString('en-IN')}, Requested Udhaar: ₹${dueAmount.toLocaleString('en-IN')}. New Total (₹${prospectiveTotalDue.toLocaleString('en-IN')}) exceeds credit limit. Max credit allowed for this sale is ₹${availableCredit.toLocaleString('en-IN')}. Please collect ₹${(dueAmount - availableCredit).toLocaleString('en-IN')} upfront via Cash/UPI or increase credit limit.`
         });
       }
     }

@@ -16,12 +16,17 @@ import {
   Flame,
   Clock,
   Sparkles,
-  Zap
+  Zap,
+  Banknote,
+  Smartphone,
+  CreditCard,
+  History
 } from 'lucide-react';
 import { Link } from 'react-router-dom';
 
 export default function WorkerDashboard() {
   const { user } = useAuth();
+  const [profileData, setProfileData] = useState(null);
   const [vehicleStock, setVehicleStock] = useState(null);
   const [workerSales, setWorkerSales] = useState([]);
   const [products, setProducts] = useState([]);
@@ -33,14 +38,15 @@ export default function WorkerDashboard() {
     const fetchData = async () => {
       try {
         const vanId = user?.assignedVehicle?._id || user?.assignedVehicle;
-        const [salesRes, stockRes, prodRes, targetRes] = await Promise.all([
+        const [salesRes, stockRes, prodRes, targetRes, profileRes] = await Promise.all([
           API.get('/sales').catch(() => ({ data: [] })),
           vanId ? API.get(`/vehicles/${vanId}/stock`).catch(() => ({ data: null })) : Promise.resolve({ data: null }),
           API.get('/products').catch(() => ({ data: [] })),
           API.get('/targets/current').catch(err => {
             console.error('Error fetching worker target:', err);
             return { data: null };
-          })
+          }),
+          user?._id ? API.get(`/auth/workers/${user._id}/profile`).catch(() => ({ data: null })) : Promise.resolve({ data: null })
         ]);
 
         const allSales = salesRes.data || [];
@@ -55,6 +61,7 @@ export default function WorkerDashboard() {
         setWorkerSales(mySales);
         setProducts(allProducts);
         if (stockRes.data) setVehicleStock(stockRes.data);
+        if (profileRes?.data) setProfileData(profileRes.data);
 
         if (targetRes?.data) {
           setTargetData(targetRes.data);
@@ -105,9 +112,14 @@ export default function WorkerDashboard() {
   let todaySalesTotal = 0;
   let todayProfitTotal = 0;
   let todayCasesDelivered = 0;
+  let todaySalesCash = 0;
+  let todaySalesUpi = 0;
 
   todaySales.forEach((sale) => {
-    todaySalesTotal += (sale.netTotal || 0);
+    const netAmt = sale.netTotal || 0;
+    todaySalesTotal += netAmt;
+    todaySalesCash += Number(sale.cashAmount || (sale.paymentMethod === 'Cash' ? (sale.paidAmount || netAmt) : 0) || 0);
+    todaySalesUpi += Number(sale.upiAmount || (sale.paymentMethod === 'UPI' ? (sale.paidAmount || netAmt) : 0) || 0);
 
     let saleCost = 0;
     (sale.items || []).forEach((item) => {
@@ -118,7 +130,7 @@ export default function WorkerDashboard() {
       saleCost += (qty * unitCost);
     });
 
-    todayProfitTotal += ((sale.netTotal || 0) - saleCost);
+    todayProfitTotal += (netAmt - saleCost);
   });
 
   return (
@@ -286,54 +298,63 @@ export default function WorkerDashboard() {
         </div>
       )}
 
-      {/* 📊 TODAY'S ROUTE PERFORMANCE STATS (STRICTLY THIS WORKER'S TODAY METRICS) */}
+      {/* 📊 1. PRIMARY HERO STATS: TODAY'S ROUTE SALES & PERFORMANCE */}
       <div className="grid grid-cols-2 lg:grid-cols-4 gap-4">
         
-        {/* 💰 Today's Sales (This Worker) */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+        {/* 🛒 1. Today's Sales Revenue (Hero Card) */}
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border-2 border-pepsi-blue/30 dark:border-blue-700/40 shadow-sm space-y-1 relative overflow-hidden">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Your Today's Sales</p>
-            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/50 rounded-lg text-emerald-600">
+            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Today's Route Sales</p>
+            <div className="p-1.5 bg-blue-50 dark:bg-blue-950/50 rounded-lg text-pepsi-blue dark:text-blue-400">
               <DollarSign className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-xl sm:text-2xl font-black text-emerald-600">
+          <h3 className="text-2xl sm:text-3xl font-black text-[#0051A5] dark:text-blue-400">
             ₹{todaySalesTotal.toLocaleString('en-IN')}
           </h3>
-          <p className="text-[10px] text-slate-400 font-semibold">{todaySales.length} Orders Billed Today</p>
-        </div>
-
-        {/* 📈 Today's Net Profit (This Worker) */}
-        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
-          <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Your Today's Profit</p>
-            <div className="p-1.5 bg-blue-50 dark:bg-blue-950/50 rounded-lg text-pepsi-blue dark:text-blue-400">
-              <TrendingUp className="w-4 h-4" />
+          <div className="text-[10px] text-slate-600 dark:text-slate-400 font-medium space-y-0.5 pt-1 border-t border-slate-100 dark:border-slate-700">
+            <div className="flex justify-between">
+              <span>Cash:</span>
+              <strong className="text-emerald-600">₹{todaySalesCash.toLocaleString('en-IN')}</strong>
+            </div>
+            <div className="flex justify-between">
+              <span>UPI:</span>
+              <strong className="text-blue-600">₹{todaySalesUpi.toLocaleString('en-IN')}</strong>
             </div>
           </div>
-          <h3 className="text-xl sm:text-2xl font-black text-[#002B7F] dark:text-blue-400">
-            ₹{Math.round(todayProfitTotal).toLocaleString('en-IN')}
-          </h3>
-          <p className="text-[10px] text-slate-400 font-semibold">
-            Margin: {todaySalesTotal > 0 ? ((todayProfitTotal / todaySalesTotal) * 100).toFixed(1) : 0}%
-          </p>
         </div>
 
-        {/* 📦 Today's Cases Delivered (This Worker) */}
+        {/* 📦 2. Today's Cases Delivered */}
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
-            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Cases Delivered Today</p>
+            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Cases Delivered</p>
             <div className="p-1.5 bg-amber-50 dark:bg-amber-950/50 rounded-lg text-amber-600">
               <Package className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-            {todayCasesDelivered.toLocaleString('en-IN')} Cases
+          <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            {todayCasesDelivered.toLocaleString('en-IN')}
           </h3>
-          <p className="text-[10px] text-slate-400 font-semibold">Delivered on Route</p>
+          <p className="text-[10px] text-slate-400 font-semibold">Cases Sold on Route</p>
         </div>
 
-        {/* 🚚 Current Van Stock */}
+        {/* 📈 3. Today's Profit Generated */}
+        <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
+          <div className="flex items-center justify-between">
+            <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Your Today's Profit</p>
+            <div className="p-1.5 bg-emerald-50 dark:bg-emerald-950/50 rounded-lg text-emerald-600">
+              <TrendingUp className="w-4 h-4" />
+            </div>
+          </div>
+          <h3 className="text-2xl sm:text-3xl font-black text-emerald-600 dark:text-emerald-400">
+            ₹{Math.round(todayProfitTotal).toLocaleString('en-IN')}
+          </h3>
+          <p className="text-[10px] text-emerald-600/80 font-bold">
+            Margin: {todaySalesTotal > 0 ? ((todayProfitTotal / todaySalesTotal) * 100).toFixed(1) : 0}%
+          </p>
+        </div>
+
+        {/* 🚚 4. Remaining Van Stock */}
         <div className="bg-white dark:bg-slate-800 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-1">
           <div className="flex items-center justify-between">
             <p className="text-[11px] text-slate-500 font-bold uppercase tracking-wider">Remaining Van Stock</p>
@@ -341,64 +362,53 @@ export default function WorkerDashboard() {
               <Truck className="w-4 h-4" />
             </div>
           </div>
-          <h3 className="text-xl sm:text-2xl font-black text-slate-900 dark:text-white">
-            {totalLoadedCases} Cases
+          <h3 className="text-2xl sm:text-3xl font-black text-slate-900 dark:text-white">
+            {totalLoadedCases} cs
           </h3>
-          <p className="text-[10px] text-slate-400 font-semibold">{vanStockItems.length} SKUs on Van</p>
+          <p className="text-[10px] text-slate-400 font-semibold">{vanStockItems.length} Products Available</p>
         </div>
 
       </div>
 
-      {/* 🚚 LIVE LOADED VAN INVENTORY TABLE */}
-      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
-        <div className="flex items-center justify-between">
-          <div className="flex items-center space-x-2">
-            <Truck className="w-4 h-4 text-pepsi-blue" />
-            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Your Assigned Van Stock Inventory</h3>
+      {/* 💵 2. COMPACT END-OF-SHIFT SETTLEMENT WIDGET (SUBTLE & CLEAN) */}
+      <div className="bg-slate-50 dark:bg-slate-800/80 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 flex flex-col sm:flex-row sm:items-center justify-between gap-3 text-xs">
+        <div className="flex items-center space-x-3">
+          <div className="p-2 bg-emerald-100 dark:bg-emerald-950/60 rounded-xl text-emerald-700 dark:text-emerald-300">
+            <Banknote className="w-5 h-5" />
           </div>
-          <span className="text-xs text-slate-400 font-medium">Ready for Route Sales</span>
+          <div>
+            <h4 className="font-extrabold text-slate-900 dark:text-white">Shift Payment & Cash Settlement</h4>
+            <p className="text-[11px] text-slate-400">Total collected today from sales and customer dues</p>
+          </div>
         </div>
 
-        <div className="overflow-x-auto">
-          <table className="w-full text-left text-xs border-collapse">
-            <thead>
-              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 uppercase text-[10px] font-bold">
-                <th className="py-2.5 px-3">Item Name</th>
-                <th className="py-2.5 px-3 text-center">Size</th>
-                <th className="py-2.5 px-3 text-right">Case Price (₹)</th>
-                <th className="py-2.5 px-3 text-center">Available on Van</th>
-              </tr>
-            </thead>
-            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
-              {vanStockItems.map((item) => (
-                <tr key={item._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
-                  <td className="py-2.5 px-3 font-extrabold text-slate-900 dark:text-white">{item.product?.name}</td>
-                  <td className="py-2.5 px-3 text-center font-bold">
-                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[11px]">
-                      {item.product?.size || '250ml'}
-                    </span>
-                  </td>
-                  <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
-                    ₹{item.product?.sellingPrice} / Case
-                  </td>
-                  <td className="py-2.5 px-3 text-center font-extrabold text-blue-600 dark:text-blue-400">
-                    {item.quantity} Cases
-                  </td>
-                </tr>
-              ))}
-              {vanStockItems.length === 0 && (
-                <tr>
-                  <td colSpan="4" className="py-6 text-center text-slate-400 italic">
-                    No stock currently loaded on vehicle. Visit Van Loading page to load cases.
-                  </td>
-                </tr>
-              )}
-            </tbody>
-          </table>
+        <div className="flex items-center space-x-3 flex-wrap gap-2">
+          <div className="bg-white dark:bg-slate-700 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 shadow-xs">
+            <span className="text-[10px] text-slate-400 block font-semibold">💵 Cash In-Hand (To Handover):</span>
+            <span className="text-sm font-black text-emerald-600 dark:text-emerald-400">
+              ₹{Number(profileData?.todayAnalytics?.cashInHand || 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+
+          <div className="bg-white dark:bg-slate-700 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 shadow-xs">
+            <span className="text-[10px] text-slate-400 block font-semibold">📱 UPI Direct (Bank):</span>
+            <span className="text-sm font-black text-blue-600 dark:text-blue-400">
+              ₹{Number(profileData?.todayAnalytics?.upiDirect || 0).toLocaleString('en-IN')}
+            </span>
+          </div>
+
+          {Number(profileData?.todayAnalytics?.creditRecovered || 0) > 0 && (
+            <div className="bg-white dark:bg-slate-700 px-3.5 py-1.5 rounded-xl border border-slate-200 dark:border-slate-600 shadow-xs">
+              <span className="text-[10px] text-slate-400 block font-semibold">💳 Dues Collected:</span>
+              <span className="text-sm font-black text-amber-600 dark:text-amber-400">
+                ₹{Number(profileData?.todayAnalytics?.creditRecovered || 0).toLocaleString('en-IN')}
+              </span>
+            </div>
+          )}
         </div>
       </div>
 
-      {/* 🧾 YOUR TODAY'S ROUTE SALES HISTORY TABLE */}
+      {/* 🧾 1. YOUR TODAY'S ROUTE SALES HISTORY TABLE (PRIMARY FOCUS) */}
       <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
         <div className="flex items-center justify-between">
           <div className="flex items-center space-x-2">
@@ -462,6 +472,115 @@ export default function WorkerDashboard() {
           </table>
         </div>
       </div>
+
+      {/* 🚚 2. LIVE LOADED VAN INVENTORY TABLE */}
+      <div className="bg-white dark:bg-slate-800 p-6 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-4">
+        <div className="flex items-center justify-between">
+          <div className="flex items-center space-x-2">
+            <Truck className="w-4 h-4 text-pepsi-blue" />
+            <h3 className="text-sm font-bold text-slate-900 dark:text-white">Your Assigned Van Stock Inventory</h3>
+          </div>
+          <span className="text-xs text-slate-400 font-medium">Ready for Route Sales</span>
+        </div>
+
+        <div className="overflow-x-auto">
+          <table className="w-full text-left text-xs border-collapse">
+            <thead>
+              <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 uppercase text-[10px] font-bold">
+                <th className="py-2.5 px-3">Item Name</th>
+                <th className="py-2.5 px-3 text-center">Size</th>
+                <th className="py-2.5 px-3 text-right">Case Price (₹)</th>
+                <th className="py-2.5 px-3 text-center">Available on Van</th>
+              </tr>
+            </thead>
+            <tbody className="divide-y divide-slate-100 dark:divide-slate-700/50">
+              {vanStockItems.map((item) => (
+                <tr key={item._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40 transition">
+                  <td className="py-2.5 px-3 font-extrabold text-slate-900 dark:text-white">{item.product?.name}</td>
+                  <td className="py-2.5 px-3 text-center font-bold">
+                    <span className="px-2 py-0.5 rounded bg-blue-100 text-blue-800 dark:bg-blue-900/40 dark:text-blue-300 text-[11px]">
+                      {item.product?.size || '250ml'}
+                    </span>
+                  </td>
+                  <td className="py-2.5 px-3 text-right font-black text-slate-900 dark:text-white">
+                    ₹{item.product?.sellingPrice} / Case
+                  </td>
+                  <td className="py-2.5 px-3 text-center font-extrabold text-blue-600 dark:text-blue-400">
+                    {item.quantity} Cases
+                  </td>
+                </tr>
+              ))}
+              {vanStockItems.length === 0 && (
+                <tr>
+                  <td colSpan="4" className="py-6 text-center text-slate-400 italic">
+                    No stock currently loaded on vehicle. Visit Van Loading page to load cases.
+                  </td>
+                </tr>
+              )}
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      {/* 💳 3. RECENT CUSTOMER DUE COLLECTIONS (COMPACT SECONDARY LIST) */}
+      {(profileData?.todayCollections?.length > 0) && (
+        <div className="bg-slate-50 dark:bg-slate-800/60 p-5 rounded-2xl border border-slate-200 dark:border-slate-700 space-y-3">
+          <div className="flex items-center justify-between">
+            <div className="flex items-center space-x-2">
+              <CreditCard className="w-4 h-4 text-slate-500" />
+              <h3 className="text-xs font-bold text-slate-700 dark:text-slate-300">
+                Customer Dues Recovered Today ({profileData.todayCollections.length})
+              </h3>
+            </div>
+            <span className="text-[11px] text-slate-400">Cash/UPI payments recorded</span>
+          </div>
+
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse">
+              <thead>
+                <tr className="border-b border-slate-200 dark:border-slate-700 text-slate-400 uppercase text-[9px] font-bold">
+                  <th className="py-2 px-3">Customer</th>
+                  <th className="py-2 px-3 text-center">Mode</th>
+                  <th className="py-2 px-3 text-right">Cash ₹</th>
+                  <th className="py-2 px-3 text-right">UPI ₹</th>
+                  <th className="py-2 px-3 text-right">Total Amount</th>
+                  <th className="py-2 px-3 text-center">Time</th>
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-slate-200/60 dark:divide-slate-700/40 text-slate-700 dark:text-slate-300">
+                {profileData.todayCollections.map((col) => (
+                  <tr key={col._id}>
+                    <td className="py-2 px-3 font-semibold">
+                      {col.customer?.shopName || 'Customer'}
+                    </td>
+                    <td className="py-2 px-3 text-center">
+                      <span className="px-1.5 py-0.5 rounded text-[9px] font-bold bg-slate-200 dark:bg-slate-700 text-slate-700 dark:text-slate-300">
+                        {col.paymentMethod}
+                      </span>
+                    </td>
+                    <td className="py-2 px-3 text-right font-medium text-emerald-600">
+                      {Number(col.cashAmount || (col.paymentMethod === 'Cash' ? col.amount : 0)) > 0
+                        ? `₹${Number(col.cashAmount || (col.paymentMethod === 'Cash' ? col.amount : 0)).toLocaleString('en-IN')}`
+                        : '—'}
+                    </td>
+                    <td className="py-2 px-3 text-right font-medium text-blue-600">
+                      {Number(col.upiAmount || (col.paymentMethod === 'UPI' ? col.amount : 0)) > 0
+                        ? `₹${Number(col.upiAmount || (col.paymentMethod === 'UPI' ? col.amount : 0)).toLocaleString('en-IN')}`
+                        : '—'}
+                    </td>
+                    <td className="py-2 px-3 text-right font-bold text-slate-900 dark:text-white">
+                      ₹{Number(col.amount || 0).toLocaleString('en-IN')}
+                    </td>
+                    <td className="py-2 px-3 text-center text-slate-400 text-[10px]">
+                      {new Date(col.createdAt || col.paymentDate).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' })}
+                    </td>
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      )}
 
       {/* 🚀 TARGET MOTIVATION POPUP */}
       {showMotivationModal && targetData && (

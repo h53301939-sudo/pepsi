@@ -21,6 +21,8 @@ const getWarehouseStock = async (req, res) => {
     return {
       _id: prod._id,
       name: prod.name,
+      size: prod.size,
+      brand: prod.brand,
       sku: prod.sku,
       category: prod.category,
       unit: prod.unit,

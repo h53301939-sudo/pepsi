@@ -145,8 +145,17 @@ export default function WarehousePage() {
 
                 return (
                   <tr key={p._id} className="hover:bg-slate-50 dark:hover:bg-slate-700/40">
-                    <td className="py-3 px-4 font-extrabold text-slate-900 dark:text-white">{p.name}</td>
-                    <td className="py-3 px-4 text-center font-bold">{p.size || '250ml'}</td>
+                    <td className="py-3 px-4 font-extrabold text-slate-900 dark:text-white">
+                      <div>
+                        <p className="font-extrabold text-sm">{p.name}</p>
+                        {p.sku && <span className="text-[10px] text-slate-400 font-normal">SKU: {p.sku}</span>}
+                      </div>
+                    </td>
+                    <td className="py-3 px-4 text-center">
+                      <span className="px-2.5 py-1 rounded-full text-xs font-black bg-blue-50 text-pepsi-blue dark:bg-blue-950/50 dark:text-blue-300 border border-blue-200 dark:border-blue-800">
+                        {p.size || 'Standard'}
+                      </span>
+                    </td>
                     <td className="py-3 px-4 text-right font-black">₹{p.sellingPrice} / Case</td>
                     <td className="py-3 px-4 text-center font-extrabold">
                       <span className="px-3 py-1 rounded-full text-xs bg-emerald-100 text-emerald-800 dark:bg-emerald-950/50 dark:text-emerald-300">
@@ -176,7 +185,7 @@ export default function WarehousePage() {
       <Modal
         isOpen={isAdjustModalOpen}
         onClose={() => setIsAdjustModalOpen(false)}
-        title={`Stock Adjustment - ${selectedProduct?.name}`}
+        title={`Stock Adjustment - ${selectedProduct?.name} (${selectedProduct?.size || ''})`}
       >
         <form onSubmit={handleAdjustSubmit} className="space-y-4 text-xs">
           <p className="text-slate-500">
