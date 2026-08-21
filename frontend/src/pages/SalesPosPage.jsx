@@ -370,101 +370,121 @@ export default function SalesPosPage() {
 
   return (
     <div className="space-y-4 pb-20 lg:pb-0">
-      {/* Top Controls Bar */}
-      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
-        <div className="flex flex-col md:flex-row md:items-center justify-between gap-3">
-          <div className="flex items-center space-x-3">
-            <h1 className="text-xl font-black text-slate-900 dark:text-white tracking-tight">Van Sales POS</h1>
-            <span className="text-xs bg-blue-50 text-pepsi-blue dark:bg-blue-900/30 dark:text-blue-300 font-extrabold px-2.5 py-1 rounded-full border border-blue-200 dark:border-blue-800">
-              Live Loaded Route Billing (Cases)
-            </span>
+      {/* 🌟 1. Top Header Banner (Responsive: Compact on Mobile, Spreads Elegantly on Desktop) */}
+      <div className="bg-gradient-to-r from-pepsi-blue via-blue-800 to-blue-950 text-white p-4 rounded-2xl shadow-sm flex flex-col md:flex-row md:items-center justify-between gap-4">
+        <div className="flex items-start sm:items-center space-x-3">
+          <div className="p-3 bg-white/10 rounded-xl backdrop-blur-md shrink-0 mt-0.5 sm:mt-0">
+            <Truck className="w-6 h-6 text-white" />
           </div>
+          <div className="space-y-1 min-w-0 flex-1">
+            <h1 className="text-lg sm:text-xl font-black tracking-tight leading-tight">
+              Van Route Sale POS
+            </h1>
+            <p className="text-xs text-blue-100 font-medium">
+              Live loaded route billing & delivery
+            </p>
 
-          {/* Van Selector (Locked for Worker, Selectable for Admin) */}
-          {user?.role === 'worker' ? (
-            <div className="flex items-center space-x-2 bg-blue-50 dark:bg-blue-950/50 px-3.5 py-2 rounded-xl border border-blue-200 dark:border-blue-800 shadow-sm">
-              <Truck className="w-4 h-4 text-pepsi-blue shrink-0" />
-              <div>
-                <span className="text-[9px] font-black text-slate-400 block uppercase tracking-wider">Assigned Route Van</span>
-                <span className="font-extrabold text-xs text-[#002B7F] dark:text-blue-300">
-                  {selectedVehicleObj
-                    ? `${selectedVehicleObj.vehicleNumber} (${selectedVehicleObj.vehicleName}) • ${selectedVehicleObj.totalStockUnits || 0} Cases`
-                    : (user?.assignedVehicle?.vehicleNumber ? `${user.assignedVehicle.vehicleNumber} (${user.assignedVehicle.vehicleName || 'Van'})` : 'No Van Assigned')}
+            <div className="pt-2 border-t border-white/10 flex flex-col md:flex-row md:items-center gap-1.5 md:gap-6 text-xs font-semibold text-blue-100">
+              <div className="flex items-center space-x-1.5">
+                <span className="opacity-80">Assigned Van:</span>
+                {user?.role === 'admin' && vehicles.length > 0 ? (
+                  <select
+                    value={selectedVehicleId}
+                    onChange={(e) => handleVehicleChange(e.target.value)}
+                    className="p-1 bg-white/15 border border-white/20 rounded-lg text-white font-extrabold text-xs"
+                  >
+                    {vehicles.map((v) => (
+                      <option key={v._id} value={v._id} className="text-slate-900">
+                        {v.vehicleNumber} ({v.vehicleName})
+                      </option>
+                    ))}
+                  </select>
+                ) : (
+                  <span className="font-extrabold text-white">
+                    {selectedVehicleObj
+                      ? `${selectedVehicleObj.vehicleNumber} (${selectedVehicleObj.vehicleName})`
+                      : (user?.assignedVehicle?.vehicleNumber ? `${user.assignedVehicle.vehicleNumber} (${user.assignedVehicle.vehicleName || 'Van'})` : 'No Van Assigned')}
+                  </span>
+                )}
+              </div>
+
+              <div className="flex items-center space-x-1.5">
+                <span className="opacity-80">Cases Loaded:</span>
+                <span className="font-extrabold text-white bg-white/15 px-2 py-0.5 rounded-md text-[11px]">
+                  {selectedVehicleObj?.totalStockUnits || 0} Cases
                 </span>
               </div>
             </div>
-          ) : (
-            <div className="flex items-center space-x-2">
-              <span className="text-xs font-bold text-slate-500 uppercase text-[10px]">Select Route Van:</span>
-              <select
-                value={selectedVehicleId}
-                onChange={(e) => handleVehicleChange(e.target.value)}
-                className="p-2 bg-slate-50 dark:bg-slate-700 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs"
-              >
-                {vehicles.map((v) => (
-                  <option key={v._id} value={v._id}>
-                    {v.vehicleNumber} ({v.vehicleName}) - {v.totalStockUnits || 0} Cases Loaded
-                  </option>
-                ))}
-              </select>
-            </div>
-          )}
+          </div>
         </div>
 
-        {/* Customer Selection Bar */}
-        <div className="pt-2 border-t border-slate-100 dark:border-slate-700 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-3">
-          <div className="w-full sm:w-auto flex-1 flex items-center space-x-2">
+        {/* Desktop "+ Add Customer" Button (Top-Right on Desktop) */}
+        <button
+          onClick={() => setIsNewCustModalOpen(true)}
+          className="hidden md:flex items-center justify-center space-x-1.5 px-4 py-2.5 bg-white/15 hover:bg-white/25 text-white rounded-xl font-extrabold text-xs border border-white/20 transition cursor-pointer shrink-0 shadow-sm"
+        >
+          <UserPlus className="w-4 h-4" />
+          <span>+ Add Customer</span>
+        </button>
+      </div>
+
+      {/* ➕ Mobile-Only Full-Width "+ Add Customer" Button (Visible only on Mobile) */}
+      <button
+        onClick={() => setIsNewCustModalOpen(true)}
+        className="md:hidden w-full flex items-center justify-center space-x-2 py-3 px-4 bg-pepsi-blue hover:bg-blue-700 text-white rounded-2xl font-extrabold text-xs shadow-sm transition active:scale-[0.99] cursor-pointer"
+      >
+        <UserPlus className="w-4 h-4" />
+        <span>+ Add Customer</span>
+      </button>
+
+      {/* 👤 2. Customer Selection Bar (Matching Direct Warehouse POS 100% 1:1) */}
+      <div className="bg-white dark:bg-slate-800 p-4 rounded-2xl border border-slate-200 dark:border-slate-700 shadow-sm space-y-3">
+        <div>
+          <label className="block text-[10px] font-extrabold text-slate-400 uppercase tracking-wider mb-1">
+            Select Customer Shop
+          </label>
+          <div className="flex items-center space-x-2">
             {selectedCustomerObj && (
               <CustomerAvatar name={selectedCustomerObj.shopName} size="sm" />
             )}
-            <div className="flex-1">
-              <select
-                value={selectedCustomerId}
-                onChange={(e) => setSelectedCustomerId(e.target.value)}
-                className="w-full p-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs focus:ring-2 focus:ring-pepsi-blue"
-              >
-                {customers.map((c) => (
-                  <option key={c._id} value={c._id}>
-                    {c.shopName} ({c.ownerName}) - Limit: ₹{c.creditLimit?.toLocaleString()} | Bal: ₹{c.outstandingBalance?.toLocaleString()}
-                    {c.discountPercentage > 0 ? ` [${c.discountPercentage}% OFF]` : ''}
-                  </option>
-                ))}
-              </select>
-            </div>
-            <button
-              onClick={() => setIsNewCustModalOpen(true)}
-              className="px-3 py-2.5 bg-pepsi-blue text-white rounded-xl font-bold text-xs hover:bg-blue-700 transition flex items-center space-x-1 flex-shrink-0"
-              title="Add New Customer Shop"
+            <select
+              value={selectedCustomerId}
+              onChange={(e) => setSelectedCustomerId(e.target.value)}
+              className="w-full p-2.5 bg-slate-50 dark:bg-slate-700/60 border border-slate-200 dark:border-slate-600 rounded-xl text-slate-900 dark:text-white font-extrabold text-xs focus:ring-2 focus:ring-pepsi-blue"
             >
-              <UserPlus className="w-3.5 h-3.5" />
-              <span>+ Customer</span>
-            </button>
+              {customers.map((c) => (
+                <option key={c._id} value={c._id}>
+                  {c.shopName} ({c.ownerName}) - Limit: ₹{c.creditLimit?.toLocaleString()} | Bal: ₹{c.outstandingBalance?.toLocaleString()}
+                  {c.discountPercentage > 0 ? ` [${c.discountPercentage}% OFF]` : ''}
+                </option>
+              ))}
+            </select>
           </div>
+        </div>
 
-          {selectedCustomerObj && (
-            <div className="flex items-center space-x-3 text-xs bg-slate-50 dark:bg-slate-700/40 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700">
-              <div>
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Credit Limit</span>
-                <span className="font-extrabold text-pepsi-blue dark:text-blue-400">₹{selectedCustomerObj.creditLimit?.toLocaleString()}</span>
-              </div>
+        {selectedCustomerObj && (
+          <div className="flex items-center space-x-3 text-xs bg-slate-50 dark:bg-slate-700/40 px-3 py-2 rounded-xl border border-slate-100 dark:border-slate-700 w-fit">
+            <div>
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Credit Limit</span>
+              <span className="font-extrabold text-pepsi-blue dark:text-blue-400">₹{selectedCustomerObj.creditLimit?.toLocaleString()}</span>
+            </div>
+            <div className="border-l border-slate-200 dark:border-slate-600 pl-3">
+              <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Balance</span>
+              <span className={`font-black ${selectedCustomerObj.outstandingBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
+                ₹{selectedCustomerObj.outstandingBalance?.toLocaleString()}
+              </span>
+            </div>
+            {selectedCustomerObj.discountPercentage > 0 && (
               <div className="border-l border-slate-200 dark:border-slate-600 pl-3">
-                <span className="text-[10px] text-slate-400 uppercase font-bold block">Current Balance</span>
-                <span className={`font-black ${selectedCustomerObj.outstandingBalance > 0 ? 'text-red-500' : 'text-emerald-600'}`}>
-                  ₹{selectedCustomerObj.outstandingBalance?.toLocaleString()}
+                <span className="text-[10px] text-emerald-600 uppercase font-bold block">Special Discount</span>
+                <span className="font-black text-emerald-600 flex items-center space-x-0.5">
+                  <Tag className="w-3 h-3" />
+                  <span>{selectedCustomerObj.discountPercentage}%</span>
                 </span>
               </div>
-              {selectedCustomerObj.discountPercentage > 0 && (
-                <div className="border-l border-slate-200 dark:border-slate-600 pl-3">
-                  <span className="text-[10px] text-emerald-600 uppercase font-bold block">Special Discount</span>
-                  <span className="font-black text-emerald-600 flex items-center space-x-0.5">
-                    <Tag className="w-3 h-3" />
-                    <span>{selectedCustomerObj.discountPercentage}%</span>
-                  </span>
-                </div>
-              )}
-            </div>
-          )}
-        </div>
+            )}
+          </div>
+        )}
       </div>
 
       {/* Mobile Tab Toggle Switcher (Visible on Mobile & Tablet screens) */}
